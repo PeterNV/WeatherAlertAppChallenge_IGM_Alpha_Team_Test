@@ -11,7 +11,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed class Route(val route: String) {
     data object Home : Route("home")
-    data object List : Route("list")
+    data object Search : Route("list")
     data object Map : Route("map")
 
     var value: String
@@ -34,7 +34,7 @@ sealed class BottomNavItem(
     data object HomeButton :
         BottomNavItem("Local", Icons.Default.Home, Route.Home)
     data object ListButton :
-        BottomNavItem("Search", Icons.Default.Search, Route.List)
+        BottomNavItem("Search", Icons.Default.Search, Route.Search)
     data object MapButton  :
         BottomNavItem("Map", Icons.Default.LocationOn, Route.Map)
 }
