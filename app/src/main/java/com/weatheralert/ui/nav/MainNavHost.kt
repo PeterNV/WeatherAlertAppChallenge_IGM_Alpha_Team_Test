@@ -1,4 +1,5 @@
 package com.weatheralert.ui.nav
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -8,6 +9,7 @@ import com.weatheralert.MainViewModel
 import com.weatheralert.MapPage
 import com.weatheralert.SearchPage
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainNavHost(navController: NavHostController,viewModel: MainViewModel) {
     NavHost(navController, startDestination = Route.Home.route) {
