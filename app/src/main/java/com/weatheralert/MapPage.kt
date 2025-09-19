@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import coil.compose.AsyncImage
 import com.weatheralert.BuildConfig
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -186,7 +188,7 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                                 selectedMap = selectionOption
                                 expandedMap = false
                                 Log.d(String.toString(),selectedMap)
-                                if(selectionOption.equals("Select map") || selectionOption.equals("Normal")){
+                                if(selectionOption == "Select map" || selectionOption == "Normal"){
                                     map1Chooser = true
                                     map2Chooser = false
 
@@ -195,7 +197,7 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
 
                                 }
 
-                                if(selectionOption.equals("MODIS Terra True Color")){
+                                if(selectionOption == "MODIS Terra True Color"){
                                     map1Chooser = false
                                     map2Chooser = true
 
@@ -235,7 +237,20 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                         disabledContentColor = White
                     )
                 ) { Text("X", fontWeight = FontWeight.Bold) }
-                Text("City: ${viewModel.cidadeMap.value}", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Row{
+                    Text(viewModel.cidadeMap.value, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    if (viewModel.iconeClimaMap.value.isNotEmpty()) {
+                        AsyncImage(
+                            model = viewModel.iconeClimaMap.value,
+                            contentDescription = "Weather icon",
+                            modifier = Modifier
+                                .size(40.dp)
+                                .offset(0.dp,(-15).dp)
+
+                        )
+                }
+
+            }
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                     Column {
@@ -323,10 +338,7 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                             }
                         }
                     }
-
-
                 }
-
 
                 Button(
                     colors = ButtonColors(

@@ -4,28 +4,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.runtime.MutableState
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.serialization.Serializable
 @Serializable
 sealed class Route(val route: String) {
     data object Home : Route("home")
-    data object Search : Route("list")
+    data object List : Route("list")
     data object Map : Route("map")
 
     var value: String
         get() = TODO("Not yet implemented")
         set(value) {}
-
-  fun component1(): String {
-        TODO("Not yet implemented")
-    }
-
-   fun component2(): (String) -> Unit {
-        TODO("Not yet implemented")
-    }
 }
+
 sealed class BottomNavItem(
     var title: String,
     var icon: ImageVector,
@@ -34,7 +25,7 @@ sealed class BottomNavItem(
     data object HomeButton :
         BottomNavItem("Local", Icons.Default.Home, Route.Home)
     data object ListButton :
-        BottomNavItem("Search", Icons.Default.Search, Route.Search)
+        BottomNavItem("Favorite", Icons.Default.Favorite, Route.List)
     data object MapButton  :
         BottomNavItem("Map", Icons.Default.LocationOn, Route.Map)
 }

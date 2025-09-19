@@ -1,12 +1,19 @@
 package com.weatheralert
 
+import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.mutableStateOf
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
-
+import androidx.lifecycle.viewModelScope
+import androidx.room.Room
 import com.weatheralert.api.WeatherApiResponse
 import com.weatheralert.api.WeatherServiceAPI
+import com.weatheralert.db.AppDatabase
+import com.weatheralert.db.CidadeFavorita
 import com.weatheralert.ui.nav.Route
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Response
 
@@ -39,7 +46,7 @@ class MainViewModel() : ViewModel() {
     val uvMap = mutableStateOf("--")
     val cidadeMap= mutableStateOf("...")
     val iconeClima = mutableStateOf("")
-
+    val iconeClimaMap = mutableStateOf("")
     private val weatherService: WeatherServiceAPI by lazy {
         Retrofit.Builder()
             .baseUrl(WeatherServiceAPI.BASE_URL)
@@ -119,6 +126,7 @@ class MainViewModel() : ViewModel() {
                     chuvaMap.value = data?.forecast?.forecastday?.get(0)?.day?.totalprecip_mm.toString()
                     ventoMap.value = data?.forecast?.forecastday?.get(0)?.day?.maxwind_kph.toString()
                     uvMap.value = data?.forecast?.forecastday?.get(0)?.day?.uv.toString()
+                    iconeClimaMap.value = "https:${data?.current?.condition?.icon ?: ""}"
                 } else {
                     Log.e("Weather", "Erro na API: ${response.code()}")
                 }
@@ -130,4 +138,18 @@ class MainViewModel() : ViewModel() {
         })
     }
 
+}
+class FavoritosViewModel(application: Application) : AndroidViewModel(application) {
+    private val dao = Room.databaseBuilder(application, AppDatabase::class.java, "app-db")
+        .build()
+        .cidadeFavoritaDao()
+
+    val todasCidadesFavoritas: Flow<List<CidadeFavorita>> = dao.obterTodas()
+
+    fun adicionarAosFavoritos(cidade: CidadeFavorita) {
+        viewModelScope.launch {
+            dao.inserir(cidade)
+        }
+    }
+    // ... outras funções
 }

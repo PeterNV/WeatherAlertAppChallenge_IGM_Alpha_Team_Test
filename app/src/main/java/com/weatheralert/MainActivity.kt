@@ -1,9 +1,12 @@
 package com.weatheralert
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
-import android.location.Location
+import android.location.Geocoder
+
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -15,8 +18,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -42,7 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -64,10 +69,18 @@ import com.weatheralert.ui.theme.GrayL
 import com.weatheralert.ui.theme.WeatherAlertTheme
 import com.weatheralert.ui.theme.White
 import coil.compose.AsyncImage
-import com.weatheralert.ui.theme.GreenL
-import kotlin.math.pow
+import com.google.ai.client.generativeai.GenerativeModel
 
-import java.util.concurrent.TimeUnit
+import com.weatheralert.ui.theme.GreenL
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
 
 class MainActivity : ComponentActivity() {
 
@@ -148,13 +161,73 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
     val currentTime = LocalDate.now()
+    val modelIa = GenerativeModel(modelName = "gemini-2.0-flash", apiKey = BuildConfig.GEMINI_API_KEY)
+    val context = LocalContext.current
+
     var expandedDay by remember { mutableStateOf(false) }
     var expandedMonth by remember { mutableStateOf(false) }
     var selectedDay by remember { mutableStateOf("Day") }
     var selectedMonth by remember { mutableStateOf("Month") }
-
+    var weatherDataSize by remember { mutableStateOf(18.sp) }
     val optionsDay: List<String> = (1..31).map { it.toString() }
     val optionsMonth: List<String> = (1..12).map { it.toString() }
+
+    // Estado para armazenar dados históricos
+    var historicalWeatherData by remember { mutableStateOf("") }
+
+    // Efeito para buscar dados históricos quando a cidade mudar
+    LaunchedEffect(viewModel.cidade.value) {
+        if (viewModel.cidade.value.isNotBlank()) {
+            fetchHistoricalWeatherData(viewModel.cidade.value, context) { data ->
+                historicalWeatherData = data
+            }
+        }
+    }
+
+    // === 3. Datas ===
+    val today = java.time.LocalDate.now()
+    val sevenDaysAgo = today.minusDays(7)
+
+    val startDate = sevenDaysAgo.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
+    val endDate = today.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
+    val params = "T2M,RH2M,PRECTOTCORR,WS10M,ALLSKY_KT"
+    var geminiResponse by remember { mutableStateOf("") }
+    // Função para buscar dados históricos
+    var isLoading by remember { mutableStateOf(false) }
+    val fetchHistoricalData: () -> Unit = {
+        if (viewModel.cidade.value.isNotBlank()) {
+            isLoading = true
+            geminiResponse = "Gerando previsão..."
+
+            fetchHistoricalWeatherData(viewModel.cidade.value, context) { data ->
+                historicalWeatherData = data
+
+                // Agora gerar o conteúdo com Gemini
+                val weatherPrompt1 = "Considerando que estou em ${viewModel.cidade.value}, hoje é $currentTime, " +
+                        "os dados de hoje são ${viewModel.temperatura.value}ºC, ${viewModel.umidade.value}%, " +
+                        "${viewModel.chuva.value}mm/h, ${viewModel.vento.value}km/h e índice de uv: ${viewModel.uv.value}"
+
+                val weatherPrompt2 = "Dados históricos dos últimos 7 dias: $historicalWeatherData. " +
+                        "Gere apenas 10 valores 5 da temperatura em ºC e 5 dos próximos 5 dias, e não inclua mais textos além disso. Exemplo do que você deve gerar: " +
+                        "27,5ºC 28,1ºC 25,1ºC 26,1ºC 23,1ºC"
+
+                // Gerar previsão com Gemini em uma corrotina separada
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val fullPrompt = weatherPrompt1 + weatherPrompt2
+                        val response = modelIa.generateContent(fullPrompt)
+                        geminiResponse = response.text ?: "Não foi possível gerar previsão"
+                    } catch (e: Exception) {
+                        geminiResponse = "Erro ao gerar previsão: ${e.message}"
+                    } finally {
+                        isLoading = false
+                    }
+                }
+            }
+        } else {
+            geminiResponse = "Por favor, selecione uma cidade primeiro"
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()){
         Image(
@@ -193,37 +266,37 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
             }
         }
         Row{
-                Text("Temperature (ºC) ", fontWeight = FontWeight.Bold, color = GrayL,
+                Text("Temperature (ºC) ", fontWeight = FontWeight.Bold, color = GrayL, fontSize = weatherDataSize,
                     modifier = modifier.offset((-45).dp,(-125).dp))
-                Text("Humidity (%)", fontWeight = FontWeight.Bold,  color = GrayL,
+                Text("Humidity (%)", fontWeight = FontWeight.Bold,  color = GrayL, fontSize = weatherDataSize,
                     modifier = modifier.offset(45.dp,(-125).dp))
         }
         Row{
             Text(
-                viewModel.temperatura.value, fontWeight = FontWeight.Bold,
+                viewModel.temperatura.value, fontWeight = FontWeight.Bold, fontSize = weatherDataSize,
                 modifier = modifier.offset((-85).dp,(-115).dp))
             Text(
-                viewModel.umidade.value, fontWeight = FontWeight.Bold,
+                viewModel.umidade.value, fontWeight = FontWeight.Bold, fontSize = weatherDataSize,
                 modifier = modifier.offset((85).dp,(-115).dp))
         }
         Row{
-            Text("Rain (mm/h) ", fontWeight = FontWeight.Bold, color = GrayL,
+            Text("Rain (mm/h) ", fontWeight = FontWeight.Bold, color = GrayL, fontSize = weatherDataSize,
                 modifier = modifier.offset((-45).dp,(-105).dp))
-            Text("Wind (km/h)", fontWeight = FontWeight.Bold, color = GrayL,
+            Text("Wind (km/h)", fontWeight = FontWeight.Bold, color = GrayL, fontSize = weatherDataSize,
                 modifier = modifier.offset(65.dp,(-105).dp))
         }
         Row{
             Text(
-                viewModel.chuva.value, fontWeight = FontWeight.Bold,
+                viewModel.chuva.value, fontWeight = FontWeight.Bold, fontSize = weatherDataSize,
                 modifier = modifier.offset((-80).dp,(-95).dp))
             Text(
-                viewModel.vento.value, fontWeight = FontWeight.Bold,
+                viewModel.vento.value, fontWeight = FontWeight.Bold, fontSize = weatherDataSize,
                 modifier = modifier.offset((85).dp,(-95).dp))
         }
-        Text("Uv",  fontWeight = FontWeight.Bold, color = GrayL,
+        Text("Uv",  fontWeight = FontWeight.Bold, color = GrayL, fontSize = weatherDataSize,
             modifier = modifier.offset((0).dp,(-85).dp))
         Text(
-            viewModel.uv.value,  fontWeight = FontWeight.Bold,
+            viewModel.uv.value,  fontWeight = FontWeight.Bold, fontSize = weatherDataSize,
             modifier = modifier.offset((0).dp,(-85).dp))
         Row{
             ExposedDropdownMenuBox(
@@ -295,11 +368,146 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                 disabledContainerColor = GreenL,
                 disabledContentColor = GreenL,
             ),
-            modifier = modifier.height(50.dp).offset((-8).dp,(-15).dp).border(3.dp, GreenL, RoundedCornerShape(25.dp)),
+            modifier = modifier
+                .height(50.dp)
+                .offset((-8).dp,(-15).dp)
+                .border(3.dp, GreenL, RoundedCornerShape(25.dp)),
             onClick = {
+                fetchHistoricalData()
             },
+            enabled = !isLoading
         ) {
-            Text("Forecast", fontSize = 18.sp)
+            if (isLoading) {
+                Text("Processando...", fontSize = 16.sp)
+            } else {
+                Text("Forecast", fontSize = 16.sp)
+            }
         }
+
+        val extraDays = (1..5).map { today.plusDays(it.toLong()).dayOfMonth.toString()+"/"+today.plusDays(it.toLong()).monthValue.toString() }
+        Log.e("XR_LIST", extraDays.toString())
+
+        if (geminiResponse.isNotEmpty()) {
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(0.dp, 25.dp)
+                    .background(color = GrayL, shape = RoundedCornerShape(15.dp))
+                    .border(0.dp, color = GrayL, shape = RoundedCornerShape(15.dp)).height(65.dp),
+                contentAlignment = Alignment.Center // <-- Centraliza o Text dentro do Box
+            ) {
+                Text(
+                    text = geminiResponse +extraDays.toString().replace("[","   ").replace("]","  ").replace(",","  "),
+                    fontSize = 16.sp,
+                    color = White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+    }
+
+}
+
+private fun fetchHistoricalWeatherData(cityName: String, context: Context, callback: (String) -> Unit) {
+    // Primeiro, precisamos geocodificar o nome da cidade para coordenadas
+    val geocoder = Geocoder(context, Locale.getDefault())
+
+    try {
+        val addresses = geocoder.getFromLocationName(cityName, 1)
+        if (addresses != null && addresses.isNotEmpty()) {
+            val address = addresses[0]
+            val lat = address.latitude
+            val lon = address.longitude
+
+            // Agora buscar dados da NASA POWER API com as coordenadas
+            val today = LocalDate.now()
+            val sevenDaysAgo = today.minusDays(7)
+            val startDate = sevenDaysAgo.format(DateTimeFormatter.BASIC_ISO_DATE)
+            val endDate = today.format(DateTimeFormatter.BASIC_ISO_DATE)
+            val params = "T2M,RH2M,PRECTOTCORR,WS10M,ALLSKY_KT"
+
+            val powerUrl = "https://power.larc.nasa.gov/api/temporal/daily/point?" +
+                    "parameters=$params&community=RE&longitude=$lon&latitude=$lat" +
+                    "&start=$startDate&end=$endDate&format=JSON"
+
+            // Executar em uma thread em background
+            Thread {
+                try {
+                    val connection = URL(powerUrl).openConnection() as HttpURLConnection
+                    connection.requestMethod = "GET"
+                    connection.connectTimeout = 10000
+                    connection.readTimeout = 10000
+
+                    val responseCode = connection.responseCode
+                    if (responseCode == HttpURLConnection.HTTP_OK) {
+                        val response = connection.inputStream.bufferedReader().use { it.readText() }
+                        val jsonData = JSONObject(response)
+
+                        if (jsonData.has("properties")) {
+                            val properties = jsonData.getJSONObject("properties")
+                            val parameter = properties.getJSONObject("parameter")
+
+                            // Processar dados para criar um resumo
+                            val summary = StringBuilder()
+
+                            // Temperatura média (T2M)
+                            val temperatures = parameter.getJSONObject("T2M")
+                            var tempSum = 0.0
+                            var tempCount = 0
+                            for (key in temperatures.keys()) {
+                                tempSum += temperatures.getDouble(key)
+                                tempCount++
+                            }
+                            val avgTemp = tempSum / tempCount
+                            summary.append("Temperatura média: ${"%.1f".format(avgTemp)}°C. ")
+
+                            // Umidade (RH2M)
+                            val humidity = parameter.getJSONObject("RH2M")
+                            var humiditySum = 0.0
+                            var humidityCount = 0
+                            for (key in humidity.keys()) {
+                                humiditySum += humidity.getDouble(key)
+                                humidityCount++
+                            }
+                            val avgHumidity = humiditySum / humidityCount
+                            summary.append("Umidade média: ${"%.1f".format(avgHumidity)}%. ")
+
+                            // Precipitação (PRECTOTCORR)
+                            val precipitation = parameter.getJSONObject("PRECTOTCORR")
+                            var precipSum = 0.0
+                            for (key in precipitation.keys()) {
+                                precipSum += precipitation.getDouble(key)
+                            }
+                            summary.append("Precipitação total: ${"%.1f".format(precipSum)}mm. ")
+
+                            // Velocidade do vento (WS10M)
+                            val windSpeed = parameter.getJSONObject("WS10M")
+                            var windSum = 0.0
+                            var windCount = 0
+                            for (key in windSpeed.keys()) {
+                                windSum += windSpeed.getDouble(key)
+                                windCount++
+                            }
+                            val avgWindSpeed = windSum / windCount
+                            summary.append("Velocidade média do vento: ${"%.1f".format(avgWindSpeed)}m/s.")
+
+                            callback(summary.toString())
+                        } else {
+                            callback("Dados históricos não disponíveis para esta localização.")
+                        }
+                    } else {
+                        callback("Erro ao buscar dados históricos: Código $responseCode")
+                    }
+                } catch (e: Exception) {
+                    callback("Erro ao processar dados históricos: ${e.message}")
+                }
+            }.start()
+        } else {
+            callback("Localização não encontrada: $cityName")
+        }
+    } catch (e: Exception) {
+        callback("Erro ao geocodificar cidade: ${e.message}")
     }
 }
