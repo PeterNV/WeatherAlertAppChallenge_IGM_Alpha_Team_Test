@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
 
 import androidx.compose.material3.Button
@@ -74,6 +76,7 @@ import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.weatheralert.model.City
 
 import com.weatheralert.ui.theme.GrayD
 import com.weatheralert.ui.theme.GrayL
@@ -88,7 +91,7 @@ import java.net.URL
 
 @ExperimentalMaterial3Api
 @Composable
-fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
+fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosViewModel: FavoritosViewModel) {
     val context = LocalContext.current
     val currentTime = LocalDate.now()
     val hasLocationPermission = ContextCompat.checkSelfPermission(
@@ -116,9 +119,10 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
     var map2Chooser by remember { mutableStateOf(false) } // ← CORRETO
     var historicalWeatherData by remember { mutableStateOf("") }
     var showFirstForecast by remember { mutableStateOf(false) }
+    var showFirstForecastMap by remember { mutableStateOf(false) }
     var geminiResponse by remember { mutableStateOf("") }
     val today = LocalDate.now()
-
+    var isFavorite by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     // Efeito para buscar dados históricos quando a cidade mudar
     LaunchedEffect(viewModel.cidadeSearch.value) {
@@ -165,6 +169,41 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
             geminiResponse = "Por favor, selecione uma cidade primeiro"
         }
     }
+    val fetchHistoricalDataMap: () -> Unit = {
+        if (viewModel.cidadeMap.value.isNotBlank()) {
+            isLoading = true
+            geminiResponse = ""
+
+            fetchHistoricalWeatherData(viewModel.cidadeMap.value, context) { data ->
+                historicalWeatherData = data
+
+                // Agora gerar o conteúdo com Gemini
+                val weatherPrompt1 = "Considerando que estou em ${viewModel.cidadeMap.value}, hoje é $today, " +
+                        "os dados de hoje são ${viewModel.temperaturaMap.value}ºC, ${viewModel.umidadeMap.value}%, " +
+                        "${viewModel.chuvaMap.value}mm/h, ${viewModel.ventoMap.value}km/h e índice de uv: ${viewModel.uvMap.value}"
+
+                val weatherPrompt2 = "Dados históricos dos últimos 7 dias: $historicalWeatherData. " +
+                        "Gere apenas 10 valores, 5 da temperatura em ºC e 5 das condições possíveis para os próximos 5 dias, e não inclua mais textos além disso e lembre-se de incluir essas imagens nas previsões https://www.weatherapi.com/docs/weather_conditions.json e as imagens tem que ficar do lado de ºC. Exemplo do que você deve gerar: " +
+
+                        "27.5ºC 28.1ºC 25.1ºC 26.1ºC 23.1ºC (Esses valores são apenas exemplos e não devem ser gerados)"
+
+                // Gerar previsão com Gemini em uma corrotina separada
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val fullPrompt = weatherPrompt1 + weatherPrompt2
+                        val response = modelIa.generateContent(fullPrompt)
+                        geminiResponse = response.text ?: "Não foi possível gerar previsão"
+                    } catch (e: Exception) {
+                        geminiResponse = "Erro ao gerar previsão: ${e.message}"
+                    } finally {
+                        isLoading = false
+                    }
+                }
+            }
+        } else {
+            geminiResponse = "Por favor, selecione uma cidade primeiro"
+        }
+    }
     Box(modifier = modifier.fillMaxSize()) {
 
         // --- Google Map ---
@@ -180,6 +219,7 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                     viewModel.getCityMap(location.latitude, location.longitude)
                     Log.d("MapClick", "Lat: $cityLati, Lon: $cityLong")
                     cityState = true;
+                    showFirstForecastMap = true;
                 }
             ) {
                 // Você pode adicionar Marker aqui se quiser
@@ -322,6 +362,10 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
 
         // --- Box de informações meteorológicas ---
         if ((cityLati != null && cityLong != null && cityState == true) ) {
+            if(showFirstForecastMap == true){
+                fetchHistoricalDataMap()
+                showFirstForecastMap = false
+            }
             Column(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -336,27 +380,54 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                     .padding(48.dp).height(600.dp)
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
-
-                Button(onClick = {
-                    cityState = false;
-                },
-                    modifier = modifier.height(50.dp).offset(0.dp,(-10).dp),
-                    colors = ButtonColors(
-                        containerColor = Red,
-                        contentColor = White,
-                        disabledContainerColor = Red,
-                        disabledContentColor = White
-                    )
-                ) { Text("X", fontWeight = FontWeight.Bold) }
                 Row{
-                    Text(viewModel.cidadeMap.value, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    Button(onClick = {
+                        cityState = false;
+                        showFirstForecastMap = false;
+                    },
+                        modifier = modifier.height(50.dp).offset(0.dp,(-10).dp),
+                        colors = ButtonColors(
+                            containerColor = Red,
+                            contentColor = White,
+                            disabledContainerColor = Red,
+                            disabledContentColor = White
+                        )
+                    ) { Text("X", fontWeight = FontWeight.Bold) }
+                    Button(
+                        modifier = modifier.height(50.dp).offset(10.dp,(-10).dp),
+                        onClick = {
+                            if (cityState == true && viewModel.cidadeMap.value.isNotBlank()) {
+                                val city = City(
+                                    name = viewModel.cidadeMap.value,
+
+                                    )
+                                favoritosViewModel.addFavoriteCity(city)
+                                isFavorite = true
+                            } else if (cityShow == true && viewModel.cidadeSearch.value.isNotBlank()) {
+                                favoritosViewModel.addFavoriteCityByName(viewModel.cidadeSearch.value)
+                                isFavorite = true
+                            }
+                        }
+                    ){
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = "Favorite icon",
+                            tint = if (isFavorite) Red else White
+                        )
+                    }
+                }
+                Row{
+
+                    Text(viewModel.cidadeMap.value, fontWeight = FontWeight.Bold, fontSize = 20.sp,
+                        modifier = Modifier
+                            .offset(0.dp,0.dp))
                     if (viewModel.iconeClimaMap.value.isNotEmpty()) {
                         AsyncImage(
                             model = viewModel.iconeClimaMap.value,
                             contentDescription = "Weather icon",
                             modifier = Modifier
-                                .size(40.dp)
-                                .offset(0.dp,(-15).dp)
+                                .size(35.dp)
+                                .offset(0.dp,(-5).dp)
 
                         )
                 }
@@ -476,7 +547,55 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                 ) {
                     Text("Forecast")
                 }
+                if (geminiResponse.isNotEmpty() ) {
+                    Box(
+                        modifier = Modifier
 
+                            .offset(45.dp, 45.dp)
+                            .background( brush = Brush.verticalGradient( // Or Brush.horizontalGradient, Brush.linearGradient
+                                colors = listOf(
+                                    Color(0xFF64B5F6), // Start color (light blue)
+                                    Color(0xFF0D47A1)  // End color (dark blue)
+                                )
+                            ), shape = RoundedCornerShape(15.dp))
+                            .border(0.dp, color = GrayL, shape = RoundedCornerShape(15.dp))
+                            .height(125.dp)
+                            .width(175.dp)
+                            .size(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row{
+
+                            val extraDays = (1..5).map { today.plusDays(it.toLong()).dayOfMonth.toString()+"/"+today.plusDays(it.toLong()).monthValue.toString() }
+                            if(geminiResponse.contains("<img")
+                                ||geminiResponse.contains("https")
+                                ||geminiResponse.contains("Ensolarado")
+                                ||geminiResponse.contains("Nublado")
+                                ||geminiResponse.contains(".png")
+                                ||geminiResponse.length < 15
+                                ||geminiResponse.length < 20
+                                ||geminiResponse.length < 30){showFirstForecastMap = true
+                            } else {
+                                Text(
+                                    text = geminiResponse,
+                                    fontSize = 16.sp,
+                                    color = White,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 5
+                                )
+                            }
+
+                            Text(
+                                text = extraDays.toString().replace("["," ").replace("]","").replace(",","\n"),
+                                fontSize = 16.sp,
+                                color = White,
+                                fontWeight = FontWeight.Bold
+
+                            )
+                        }
+
+                    }
+                }
 
             }
 
@@ -501,30 +620,58 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Button(onClick = {
-
-                    CityName = ""
-                    cityShow = false
-                    CitySearch = true
-
-                },
-                    modifier = modifier.height(50.dp).offset(0.dp,(-10).dp),
-                    colors = ButtonColors(
-                        containerColor = Red,
-                        contentColor = White,
-                        disabledContainerColor = Red,
-                        disabledContentColor = White
-                    )
-                ) { Text("X", fontWeight = FontWeight.Bold) }
                 Row{
-                    Text(viewModel.cidadeSearch.value, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    Button(onClick = {
+                        cityState = false;
+                        cityShow = false;
+                        CitySearch = true;
+                        showFirstForecastMap = false;
+                    },
+                        modifier = modifier.height(50.dp).offset(0.dp,(-10).dp),
+                        colors = ButtonColors(
+                            containerColor = Red,
+                            contentColor = White,
+                            disabledContainerColor = Red,
+                            disabledContentColor = White
+                        )
+                    ) { Text("X", fontWeight = FontWeight.Bold) }
+                    Button(
+                        modifier = modifier.height(50.dp).offset(10.dp,(-10).dp),
+                        onClick = {
+                            Log.d(toString(),viewModel.cidadeSearch.value)
+
+                            if (cityState == true && viewModel.cidadeMap.value.isNotBlank()) {
+                                val city = City(
+                                    name = viewModel.cidadeMap.value,
+
+                                )
+                                favoritosViewModel.addFavoriteCity(city)
+                                isFavorite = true
+                            } else if (cityShow == true && viewModel.cidadeSearch.value.isNotBlank()) {
+                                favoritosViewModel.addFavoriteCityByName(viewModel.cidadeSearch.value)
+                                isFavorite = true
+                            }
+                        }
+                    ){
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = "Favorite icon",
+                            tint = if (isFavorite) Red else White
+                        )
+                    }
+                }
+                Row{
+
+
+                    Text(viewModel.cidadeSearch.value, fontWeight = FontWeight.Bold, fontSize = 20.sp,
+                        modifier = Modifier.offset(0.dp,0.dp))
                     if (viewModel.iconeClimaSearch.value.isNotEmpty()) {
                         AsyncImage(
                             model = viewModel.iconeClimaSearch.value,
                             contentDescription = "Weather icon",
                             modifier = Modifier
-                                .size(40.dp)
-                                .offset(0.dp,(-15).dp)
+                                .size(35.dp)
+                                .offset(0.dp,(-5).dp)
 
                         )
                     }
@@ -664,7 +811,15 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                         ) {
                             Row{
                                 val extraDays = (1..5).map { today.plusDays(it.toLong()).dayOfMonth.toString()+"/"+today.plusDays(it.toLong()).monthValue.toString() }
-                                if(geminiResponse.contains("<img")||geminiResponse.contains("https")||geminiResponse.contains("Ensolarado")||geminiResponse.contains("Nublado")){showFirstForecast = true
+                                if(geminiResponse.contains("<img")
+                                    ||geminiResponse.contains("https")
+                                    ||geminiResponse.contains(".png")
+                                    ||geminiResponse.contains("png")
+                                    ||geminiResponse.contains("Ensolarado")
+                                    ||geminiResponse.contains("Nublado")
+                                    ||geminiResponse.length < 15
+                                    ||geminiResponse.length < 20
+                                    ||geminiResponse.length < 30){showFirstForecast = true
                                 } else {
                                     Text(
                                         text = geminiResponse,

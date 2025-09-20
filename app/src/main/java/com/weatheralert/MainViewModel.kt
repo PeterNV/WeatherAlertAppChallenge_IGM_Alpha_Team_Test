@@ -1,20 +1,28 @@
 package com.weatheralert
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.mutableStateOf
+
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Room
+import com.google.android.gms.maps.MapsInitializer.initialize
+import com.google.android.gms.maps.model.LatLng
 import com.weatheralert.api.WeatherApiResponse
 import com.weatheralert.api.WeatherServiceAPI
-import com.weatheralert.db.AppDatabase
 import com.weatheralert.db.CidadeFavorita
+import com.weatheralert.model.City
+import com.weatheralert.repo.Repository
 import com.weatheralert.ui.nav.Route
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import retrofit2.Call
+import retrofit2.Callback
 import retrofit2.Response
 
 import retrofit2.Retrofit
@@ -48,6 +56,8 @@ class MainViewModel() : ViewModel() {
     val iconeClima = mutableStateOf("")
     val iconeClimaMap = mutableStateOf("")
     val iconeClimaSearch = mutableStateOf("")
+
+
     private val weatherService: WeatherServiceAPI by lazy {
         Retrofit.Builder()
             .baseUrl(WeatherServiceAPI.BASE_URL)
@@ -56,10 +66,11 @@ class MainViewModel() : ViewModel() {
             .create(WeatherServiceAPI::class.java)
     }
 
+
     fun getYourLocation(lat: Double, lon: Double) {
         val location = "$lat,$lon"
         val call = weatherService.getWeatherForecast(location)
-        call.enqueue(object : retrofit2.Callback<WeatherApiResponse> {
+        call.enqueue(object : Callback<WeatherApiResponse> {
             override fun onResponse(
                 call: Call<WeatherApiResponse>,
                 response: Response<WeatherApiResponse>
@@ -78,7 +89,7 @@ class MainViewModel() : ViewModel() {
                 }
             }
 
-            override fun onFailure(call: retrofit2.Call<WeatherApiResponse>, t: Throwable) {
+            override fun onFailure(call: Call<WeatherApiResponse>, t: Throwable) {
                 Log.e("Weather", "Falha na requisição: ${t.message}")
             }
         })
@@ -87,10 +98,10 @@ class MainViewModel() : ViewModel() {
     fun getCity(City: String) {
         val location = City
         val call = weatherService.getWeatherForecast(location)
-        call.enqueue(object : retrofit2.Callback<WeatherApiResponse> {
+        call.enqueue(object : Callback<WeatherApiResponse> {
             override fun onResponse(
-                call: retrofit2.Call<WeatherApiResponse>,
-                response: retrofit2.Response<WeatherApiResponse>
+                call: Call<WeatherApiResponse>,
+                response: Response<WeatherApiResponse>
             ) {
                 if (response.isSuccessful) {
                     val data = response.body()
@@ -106,7 +117,7 @@ class MainViewModel() : ViewModel() {
                 }
             }
 
-            override fun onFailure(call: retrofit2.Call<WeatherApiResponse>, t: Throwable) {
+            override fun onFailure(call: Call<WeatherApiResponse>, t: Throwable) {
                 Log.e("Weather", "Falha na requisição: ${t.message}")
             }
         })
@@ -115,10 +126,10 @@ class MainViewModel() : ViewModel() {
     fun getCityMap(lat: Double, lon: Double) {
         val location = "$lat,$lon"
         val call = weatherService.getWeatherForecast(location)
-        call.enqueue(object : retrofit2.Callback<WeatherApiResponse> {
+        call.enqueue(object : Callback<WeatherApiResponse> {
             override fun onResponse(
-                call: retrofit2.Call<WeatherApiResponse>,
-                response: retrofit2.Response<WeatherApiResponse>
+                call: Call<WeatherApiResponse>,
+                response: Response<WeatherApiResponse>
             ) {
                 if (response.isSuccessful) {
                     val data = response.body()
@@ -134,24 +145,10 @@ class MainViewModel() : ViewModel() {
                 }
             }
 
-            override fun onFailure(call: retrofit2.Call<WeatherApiResponse>, t: Throwable) {
+            override fun onFailure(call: Call<WeatherApiResponse>, t: Throwable) {
                 Log.e("Weather", "Falha na requisição: ${t.message}")
             }
         })
     }
 
-}
-class FavoritosViewModel(application: Application) : AndroidViewModel(application) {
-    private val dao = Room.databaseBuilder(application, AppDatabase::class.java, "app-db")
-        .build()
-        .cidadeFavoritaDao()
-
-    val todasCidadesFavoritas: Flow<List<CidadeFavorita>> = dao.obterTodas()
-
-    fun adicionarAosFavoritos(cidade: CidadeFavorita) {
-        viewModelScope.launch {
-            dao.inserir(cidade)
-        }
-    }
-    // ... outras funções
 }

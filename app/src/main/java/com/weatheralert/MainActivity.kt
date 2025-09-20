@@ -76,6 +76,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private val mainViewModel: MainViewModel by viewModels()
+    private val favoritosViewModel: FavoritosViewModel by viewModels()
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     //val context = LocalContext.current
 
@@ -128,7 +129,8 @@ class MainActivity : ComponentActivity() {
                         }
 
                         HomePage(viewModel = mainViewModel)
-                        MainNavHost(navController = navController, viewModel = viewModel)
+                        MainNavHost(navController = navController, viewModel = viewModel,
+                            favoritosViewModel = favoritosViewModel)
 
                         // Navegação baseada no page do ViewModel
                         LaunchedEffect(viewModel.page.value) {
@@ -232,7 +234,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
             .padding(16.dp, 35.dp)
             .fillMaxSize()
             .shadow(5.dp, RoundedCornerShape(25.dp))
-            .border(2.dp, White, RoundedCornerShape(25.dp))
+            .border(2.dp, Color.Transparent, RoundedCornerShape(25.dp))
             .background(brush = Brush.verticalGradient( // Or Brush.horizontalGradient, Brush.linearGradient
                 colors = listOf(
                     White, // Start color (light blue)
@@ -290,6 +292,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
             viewModel.uv.value,  fontWeight = FontWeight.Bold, fontSize = weatherDataSize,
             modifier = modifier.offset((0).dp,(-15).dp))
         Row{
+
             ExposedDropdownMenuBox(
                 expanded = expandedDay,
                 onExpandedChange = { expandedDay = !expandedDay },
@@ -411,7 +414,14 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                 contentAlignment = Alignment.Center
             ) {
             Row{
-                if(geminiResponse.contains("<img")||geminiResponse.contains("https")||geminiResponse.contains("Ensolarado")||geminiResponse.contains("Nublado")){showFirstForecast = true
+                if(geminiResponse.contains("<img")
+                    ||geminiResponse.contains("https")
+                    ||geminiResponse.contains("Ensolarado")
+                    ||geminiResponse.contains("Nublado")
+                    ||geminiResponse.contains("Nublado")
+                    ||geminiResponse.length < 15
+                    ||geminiResponse.length < 20
+                    ||geminiResponse.length < 30){showFirstForecast = true
                 } else {
                     Text(
                         text = geminiResponse,

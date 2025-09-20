@@ -3,11 +3,11 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+
     alias(libs.plugins.kotlin.compose)
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0" // Plugin de serialização
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0"
     id ("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
     alias(libs.plugins.google.gms.google.services)
-
 }
 
 android {
@@ -85,6 +85,7 @@ dependencies {
     implementation(libs.generativeai)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.room.runtime.android)
+
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
