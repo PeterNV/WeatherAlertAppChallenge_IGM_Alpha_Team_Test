@@ -47,6 +47,7 @@ class MainViewModel() : ViewModel() {
     val cidadeMap= mutableStateOf("...")
     val iconeClima = mutableStateOf("")
     val iconeClimaMap = mutableStateOf("")
+    val iconeClimaSearch = mutableStateOf("")
     private val weatherService: WeatherServiceAPI by lazy {
         Retrofit.Builder()
             .baseUrl(WeatherServiceAPI.BASE_URL)
@@ -99,6 +100,7 @@ class MainViewModel() : ViewModel() {
                     chuvaSearch.value = data?.forecast?.forecastday?.get(0)?.day?.totalprecip_mm.toString()
                     ventoSearch.value = data?.forecast?.forecastday?.get(0)?.day?.maxwind_kph.toString()
                     uvSearch.value = data?.forecast?.forecastday?.get(0)?.day?.uv.toString()
+                    iconeClimaSearch.value = "https:${data?.current?.condition?.icon ?: ""}"
                 } else {
                     Log.e("Weather", "Erro na API: ${response.code()}")
                 }
