@@ -15,6 +15,10 @@ data class LocationData(
 
 data class CurrentWeather(
     val temp_c: Double?,
+    val humidity: Double?,
+    val precip_mm: Double?,
+    val wind_kph: Double?,
+    val uv: Double?,
     val condition: Conditions?
 )
 

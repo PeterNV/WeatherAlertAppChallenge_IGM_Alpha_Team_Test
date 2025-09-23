@@ -62,7 +62,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
-import com.weatheralert.BuildConfig
+
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.MapView
@@ -322,7 +322,7 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosVie
                 }
             }
         }
-        Column (horizontalAlignment = Alignment.CenterHorizontally,
+        Column (horizontalAlignment = CenterHorizontally,
             verticalArrangement = Arrangement.Center,
             modifier = modifier.offset(5.dp,650.dp).background(color = White, shape = RoundedCornerShape(25.dp))
                 .height(65.dp)
@@ -548,6 +548,7 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosVie
                     Text("Forecast")
                 }
                 if (geminiResponse.isNotEmpty() ) {
+                    val BrokenLines = countBrokenLines(geminiResponse)
                     Box(
                         modifier = Modifier
 
@@ -572,9 +573,8 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosVie
                                 ||geminiResponse.contains("Ensolarado")
                                 ||geminiResponse.contains("Nublado")
                                 ||geminiResponse.contains(".png")
-                                ||geminiResponse.length < 15
-                                ||geminiResponse.length < 20
-                                ||geminiResponse.length < 30){showFirstForecastMap = true
+                                ||BrokenLines < 5
+                                ){showFirstForecastMap = true
                             } else {
                                 Text(
                                     text = geminiResponse,

@@ -59,7 +59,6 @@ import com.google.android.gms.location.LocationServices
 import com.weatheralert.ui.nav.BottomNavBar
 import com.weatheralert.ui.nav.BottomNavItem
 import com.weatheralert.ui.nav.MainNavHost
-import com.weatheralert.ui.theme.GrayL
 import com.weatheralert.ui.theme.WeatherAlertTheme
 import com.weatheralert.ui.theme.White
 import coil.compose.AsyncImage
@@ -71,14 +70,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-
-
 class MainActivity : ComponentActivity() {
 
     private val mainViewModel: MainViewModel by viewModels()
     private val favoritosViewModel: FavoritosViewModel by viewModels()
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    //val context = LocalContext.current
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -162,8 +158,8 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
     var showFirstForecast by remember { mutableStateOf(true) }
     var selectedDay by remember { mutableStateOf("Day") }
     var selectedMonth by remember { mutableStateOf("Month") }
-    var weatherDataSize by remember { mutableStateOf(18.sp) }
-    val optionsDay: List<String> = (today.dayOfMonth..31).map { it.toString() }
+    val weatherDataSize by remember { mutableStateOf(18.sp) }
+    val optionsDay: List<String> = (1..31).map { it.toString() }
     val optionsMonth: List<String> = (today.monthValue..12).map { it.toString() }
 
     // Estado para armazenar dados históricos
@@ -224,8 +220,8 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
             contentScale = ContentScale.FillBounds,
             modifier = Modifier.matchParentSize()
         )
-
     }
+
     Column(
 
         verticalArrangement = Arrangement.Center,
@@ -246,7 +242,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
 
             Text(
                 viewModel.cidade.value, fontWeight = FontWeight.Bold, fontSize = 30.sp,
-                modifier = modifier.offset(0.dp,(-105).dp)
+                modifier = modifier.offset(0.dp,(-95).dp)
             )
             if (viewModel.iconeClima.value.isNotEmpty()) {
                 AsyncImage(
@@ -254,15 +250,15 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                     contentDescription = "Weather icon",
                     modifier = Modifier
                         .size(40.dp)
-                        .offset(10.dp, (-105).dp)
+                        .offset(10.dp, (-95).dp)
                 )
             }
         }
         Row{
-                Text("Temperature (ºC) ", fontWeight = FontWeight.Bold, color = GrayD, fontSize = weatherDataSize,
-                    modifier = modifier.offset((-45).dp,(-85).dp))
-                Text("Humidity (%)", fontWeight = FontWeight.Bold,  color = GrayD, fontSize = weatherDataSize,
-                    modifier = modifier.offset(45.dp,(-85).dp))
+            Text("Temperature (ºC) ", fontWeight = FontWeight.Bold, color = GrayD, fontSize = weatherDataSize,
+                modifier = modifier.offset((-45).dp,(-85).dp))
+            Text("Humidity (%)", fontWeight = FontWeight.Bold,  color = GrayD, fontSize = weatherDataSize,
+                modifier = modifier.offset(45.dp,(-85).dp))
         }
         Row{
             Text(
@@ -335,7 +331,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                 onExpandedChange = { expandedMonth = !expandedMonth },
                 modifier = modifier.width(125.dp).offset(45.dp,(-20).dp),
 
-            ) {
+                ) {
                 TextField(
                     value = selectedMonth,
                     onValueChange = {},
@@ -354,7 +350,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                     onDismissRequest = { expandedMonth = false },
                     modifier = modifier.background(color = White),
 
-                ) {
+                    ) {
                     optionsMonth.forEach { selectionOption ->
                         DropdownMenuItem(
                             text = { Text(selectionOption) },
@@ -363,7 +359,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                                 expandedMonth = false
                             },
 
-                        )
+                            )
                     }
                 }
             }
@@ -384,63 +380,82 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
 
             },
 
-        ) {
-
-                Text("Forecast", fontSize = 16.sp)
-
+            ) {
+            Text("Forecast date", fontSize = 16.sp)
         }
+
+        Button(
+            colors = ButtonColors(
+                containerColor = GreenL,
+                contentColor = White,
+                disabledContainerColor = GreenL,
+                disabledContentColor = GreenL,
+            ),
+            modifier = modifier
+                .height(50.dp)
+                .offset((-5).dp,(20).dp)
+                .border(3.dp, GreenL, RoundedCornerShape(25.dp)),
+            onClick = {
+
+            },
+
+            ) {
+            Text("Recommendations for today", fontSize = 16.sp)
+        }
+
+
 
         val extraDays = (1..5).map { today.plusDays(it.toLong()).dayOfMonth.toString()+"/"+today.plusDays(it.toLong()).monthValue.toString() }
         Log.e("XR_LIST", extraDays.toString())
-        if(showFirstForecast == true){
+        if(showFirstForecast){
             fetchHistoricalData()
             showFirstForecast = false
         }
+        Box(
+            modifier = Modifier
 
-        if (geminiResponse.isNotEmpty() ) {
-            Box(
-                modifier = Modifier
+                .offset(0.dp, 45.dp)
+                .background( brush = Brush.verticalGradient( // Or Brush.horizontalGradient, Brush.linearGradient
+                    colors = listOf(
+                        Color(0xFF64B5F6), // Start color (light blue)
+                        Color(0xFF0D47A1)  // End color (dark blue)
+                    )
+                ), shape = RoundedCornerShape(15.dp))
+                .border(3.dp, color = Color.Transparent, shape = RoundedCornerShape(15.dp))
+                .height(125.dp)
+                .width(175.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (geminiResponse.isNotEmpty() ) {
+                val BrokenLines = countBrokenLines(geminiResponse)
 
-                    .offset(0.dp, 45.dp)
-                    .background( brush = Brush.verticalGradient( // Or Brush.horizontalGradient, Brush.linearGradient
-                        colors = listOf(
-                            Color(0xFF64B5F6), // Start color (light blue)
-                            Color(0xFF0D47A1)  // End color (dark blue)
+                Row{
+                    if( geminiResponse.contains("<img")
+                        ||  geminiResponse.contains("https")
+                        ||  geminiResponse.contains("Ensolarado")
+                        ||  geminiResponse.contains("Nublado")
+                        ||  geminiResponse.contains("Sunny")
+                        ||  geminiResponse.contains("Sol")
+                        || BrokenLines  < 5
+                    ){showFirstForecast = true
+                    } else {
+                        Text(
+                            text = geminiResponse,
+                            fontSize = 16.sp,
+                            color = White,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 5
                         )
-                    ), shape = RoundedCornerShape(15.dp))
-                    .border(0.dp, color = GrayL, shape = RoundedCornerShape(15.dp))
-                    .height(125.dp)
-                    .width(175.dp),
-                contentAlignment = Alignment.Center
-            ) {
-            Row{
-                if(geminiResponse.contains("<img")
-                    ||geminiResponse.contains("https")
-                    ||geminiResponse.contains("Ensolarado")
-                    ||geminiResponse.contains("Nublado")
-                    ||geminiResponse.contains("Nublado")
-                    ||geminiResponse.length < 15
-                    ||geminiResponse.length < 20
-                    ||geminiResponse.length < 30){showFirstForecast = true
-                } else {
+                    }
+
                     Text(
-                        text = geminiResponse,
+                        text = extraDays.toString().replace("["," ").replace("]","").replace(",","\n"),
                         fontSize = 16.sp,
                         color = White,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 5
+                        fontWeight = FontWeight.Bold
+
                     )
                 }
-
-                Text(
-                    text = extraDays.toString().replace("["," ").replace("]","").replace(",","\n"),
-                    fontSize = 16.sp,
-                    color = White,
-                    fontWeight = FontWeight.Bold
-
-                )
-            }
-
             }
         }
     }
