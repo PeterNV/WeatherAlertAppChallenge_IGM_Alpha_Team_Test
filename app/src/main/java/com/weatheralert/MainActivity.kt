@@ -9,7 +9,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -22,9 +21,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -45,10 +47,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
@@ -64,11 +65,14 @@ import com.weatheralert.ui.theme.White
 import coil.compose.AsyncImage
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.android.gms.location.Priority
+import com.weatheralert.ui.theme.Black
 import com.weatheralert.ui.theme.GrayD
 import com.weatheralert.ui.theme.GreenL
+import com.weatheralert.ui.theme.Red
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.time.LocalTime
 
 class MainActivity : ComponentActivity() {
 
@@ -150,12 +154,17 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
     val today = LocalDate.now()
-    val modelIa = GenerativeModel(modelName = "gemini-2.0-flash", apiKey = BuildConfig.GEMINI_API_KEY)
+    val todayHour = LocalTime.now()
+    val modelIa =
+        GenerativeModel(modelName = "gemini-2.0-flash", apiKey = BuildConfig.GEMINI_API_KEY)
     val context = LocalContext.current
 
     var expandedDay by remember { mutableStateOf(false) }
     var expandedMonth by remember { mutableStateOf(false) }
     var showFirstForecast by remember { mutableStateOf(true) }
+    var allButsDisabled by remember { mutableStateOf(false) }
+    var showFirstRecToday by remember { mutableStateOf(true) }
+    var showFirstRec5Days by remember { mutableStateOf(true) }
     var selectedDay by remember { mutableStateOf("Day") }
     var selectedMonth by remember { mutableStateOf("Month") }
     val weatherDataSize by remember { mutableStateOf(18.sp) }
@@ -173,10 +182,17 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
             }
         }
     }
+    var closeRecToday by remember { mutableStateOf(false) }
+    var showRecToday by remember { mutableStateOf(false) }
 
+    var closeRec5Days by remember { mutableStateOf(false) }
+    var showRec5Days by remember { mutableStateOf(false) }
     var geminiResponse by remember { mutableStateOf("") }
-
+    var geminiResponseToday by remember { mutableStateOf("") }
+    var geminiResponse5Days by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    var isLoadingToday by remember { mutableStateOf(false) }
+    var isLoading5Days by remember { mutableStateOf(false) }
     val fetchHistoricalData: () -> Unit = {
         if (viewModel.cidade.value.isNotBlank()) {
             isLoading = true
@@ -186,14 +202,16 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                 historicalWeatherData = data
 
                 // Agora gerar o conteúdo com Gemini
-                val weatherPrompt1 = "Considerando que estou em ${viewModel.cidade.value}, hoje é $today, " +
-                        "os dados de hoje são ${viewModel.temperatura.value}ºC, ${viewModel.umidade.value}%, " +
-                        "${viewModel.chuva.value}mm/h, ${viewModel.vento.value}km/h e índice de uv: ${viewModel.uv.value}"
+                val weatherPrompt1 =
+                    "Considerando que estou em ${viewModel.cidade.value}, hoje é $today,  " +
+                            "os dados de hoje são ${viewModel.temperatura.value}ºC, ${viewModel.umidade.value}%, " +
+                            "${viewModel.chuva.value}mm/h, ${viewModel.vento.value}km/h e índice de uv: ${viewModel.uv.value}"
 
-                val weatherPrompt2 = "Dados históricos dos últimos 7 dias: $historicalWeatherData. " +
-                        "Gere apenas 10 valores, 5 da temperatura em ºC e 5 das condições possíveis para os próximos 5 dias, e não inclua mais textos além disso e lembre-se de incluir essas imagens nas previsões https://www.weatherapi.com/docs/weather_conditions.json e as imagens tem que ficar do lado de ºC. Exemplo do que você deve gerar: " +
+                val weatherPrompt2 =
+                    "Dados históricos dos últimos 7 dias: $historicalWeatherData. " +
+                            "Gere apenas 10 valores, 5 da temperatura em ºC e 5 das condições possíveis para os próximos 5 dias, e não inclua mais textos além disso e lembre-se de incluir essas imagens nas previsões https://www.weatherapi.com/docs/weather_conditions.json e as imagens tem que ficar do lado de ºC. Exemplo do que você deve gerar: " +
 
-                        "27,5ºC 28,1ºC 25,1ºC 26,1ºC 23,1ºC (Esses valores são apenas exemplos e não devem ser gerados)"
+                            "27,5ºC 28,1ºC 25,1ºC 26,1ºC 23,1ºC (Esses valores são apenas exemplos e não devem ser gerados)"
 
                 // Gerar previsão com Gemini em uma corrotina separada
                 CoroutineScope(Dispatchers.IO).launch {
@@ -212,37 +230,97 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
             geminiResponse = "Por favor, selecione uma cidade primeiro"
         }
     }
+    val fetchHistoricalToday: () -> Unit = {
+        if (viewModel.cidade.value.isNotBlank()) {
+            isLoadingToday = true
+            geminiResponseToday = ""
 
-    Box(modifier = modifier.fillMaxSize()){
-        Image(
-            painter = painterResource(id = R.drawable.imagem_1_login_menu),
-            contentDescription = "Main background",
-            contentScale = ContentScale.FillBounds,
-            modifier = Modifier.matchParentSize()
-        )
+            fetchHistoricalWeatherData(viewModel.cidade.value, context) { data ->
+                historicalWeatherData = data
+
+                // Agora gerar o conteúdo com Gemini
+                val weatherPrompt1 =
+                    "Considerando que estou em ${viewModel.cidade.value}, hoje é $today, já são " + "$todayHour, " +
+                            "os dados de hoje são ${viewModel.temperatura.value}ºC, ${viewModel.umidade.value}%, " +
+                            "${viewModel.chuva.value}mm/h, ${viewModel.vento.value}km/h e índice de uv: ${viewModel.uv.value}"
+
+                val weatherPrompt2 =
+                    "Quais são as recomendações, que tenham haver com trabalho, estudo, lazer, praticar esportes, lanche, sair de casa, etc. "
+
+                // Gerar previsão com Gemini em uma corrotina separada
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val fullPrompt = weatherPrompt1 + weatherPrompt2
+                        val response = modelIa.generateContent(fullPrompt)
+                        geminiResponseToday =
+                            response.text ?: "Não foi possível gerar recomendações"
+                    } catch (e: Exception) {
+                        geminiResponseToday = "Erro ao gerar previsão: ${e.message}"
+                    } finally {
+                        isLoadingToday = false
+                    }
+                }
+            }
+        } else {
+            geminiResponseToday = "Por favor, selecione uma cidade primeiro"
+        }
     }
+    val fetchHistorical5Days: () -> Unit = {
+        if (viewModel.cidade.value.isNotBlank()) {
+            isLoading5Days = true
+            geminiResponse5Days = ""
 
+            fetchHistoricalWeatherData(viewModel.cidade.value, context) { data ->
+                historicalWeatherData = data
+
+                // Agora gerar o conteúdo com Gemini
+                val weatherPrompt1 =
+                    "Considerando que estou em ${viewModel.cidade.value}, e essas são as previsões para os próximos 5 dias "+geminiResponse
+
+                val weatherPrompt2 =
+                    "Quais são as recomendações para os próximos 5 dias, que tenham haver com trabalho, estudo, lazer, praticar esportes, lanche, sair de casa, etc.? "
+
+                // Gerar previsão com Gemini em uma corrotina separada
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val fullPrompt = weatherPrompt1 + weatherPrompt2
+                        val response = modelIa.generateContent(fullPrompt)
+                        geminiResponse5Days =
+                            response.text ?: "Não foi possível gerar recomendações"
+                    } catch (e: Exception) {
+                        geminiResponse5Days = "Erro ao gerar previsão: ${e.message}"
+                    } finally {
+                        isLoading5Days = false
+                    }
+                }
+            }
+        } else {
+            geminiResponseToday = "Por favor, selecione uma cidade primeiro"
+        }
+    }
+    Box(modifier = modifier.fillMaxSize()) {
     Column(
 
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = CenterHorizontally,
         modifier = modifier
-            .padding(16.dp, 35.dp)
+
             .fillMaxSize()
-            .shadow(5.dp, RoundedCornerShape(25.dp))
-            .border(2.dp, Color.Transparent, RoundedCornerShape(25.dp))
-            .background(brush = Brush.verticalGradient( // Or Brush.horizontalGradient, Brush.linearGradient
-                colors = listOf(
-                    White, // Start color (light blue)
-                    Color(0xFF0D47A1)  // End color (dark blue)
-                )
-            ), shape = RoundedCornerShape(15.dp))
+
+            .background(
+                brush = Brush.verticalGradient( // Or Brush.horizontalGradient, Brush.linearGradient
+                    colors = listOf(
+                        White, // Start color (light blue)
+                        Color(0xFF0D47A1)  // End color (dark blue)
+                    )
+                ), shape = RoundedCornerShape(0.dp)
+            )
     ) {
-        Row{
+        Row {
 
             Text(
                 viewModel.cidade.value, fontWeight = FontWeight.Bold, fontSize = 30.sp,
-                modifier = modifier.offset(0.dp,(-95).dp)
+                modifier = modifier.offset(0.dp, (-95).dp)
             )
             if (viewModel.iconeClima.value.isNotEmpty()) {
                 AsyncImage(
@@ -254,45 +332,68 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                 )
             }
         }
-        Row{
-            Text("Temperature (ºC) ", fontWeight = FontWeight.Bold, color = GrayD, fontSize = weatherDataSize,
-                modifier = modifier.offset((-45).dp,(-85).dp))
-            Text("Humidity (%)", fontWeight = FontWeight.Bold,  color = GrayD, fontSize = weatherDataSize,
-                modifier = modifier.offset(45.dp,(-85).dp))
-        }
-        Row{
+        Row {
             Text(
-                viewModel.temperatura.value, fontWeight = FontWeight.Bold, fontSize = weatherDataSize,
-                modifier = modifier.offset((-85).dp,(-75).dp))
+                "Temperature (ºC) ",
+                fontWeight = FontWeight.Bold,
+                color = GrayD,
+                fontSize = weatherDataSize,
+                modifier = modifier.offset((-45).dp, (-85).dp)
+            )
+            Text(
+                "Humidity (%)",
+                fontWeight = FontWeight.Bold,
+                color = GrayD,
+                fontSize = weatherDataSize,
+                modifier = modifier.offset(45.dp, (-85).dp)
+            )
+        }
+        Row {
+            Text(
+                viewModel.temperatura.value,
+                fontWeight = FontWeight.Bold,
+                fontSize = weatherDataSize,
+                modifier = modifier.offset((-85).dp, (-75).dp)
+            )
             Text(
                 viewModel.umidade.value, fontWeight = FontWeight.Bold, fontSize = weatherDataSize,
-                modifier = modifier.offset((85).dp,(-75).dp))
+                modifier = modifier.offset((85).dp, (-75).dp)
+            )
         }
-        Row{
-            Text("Rain (mm/h) ", fontWeight = FontWeight.Bold, color = GrayD, fontSize = weatherDataSize,
-                modifier = modifier.offset((-45).dp,(-55).dp))
-            Text("Wind (km/h)", fontWeight = FontWeight.Bold, color = GrayD, fontSize = weatherDataSize,
-                modifier = modifier.offset(65.dp,(-55).dp))
+        Row {
+            Text(
+                "Rain (mm/h) ",
+                fontWeight = FontWeight.Bold,
+                color = GrayD,
+                fontSize = weatherDataSize,
+                modifier = modifier.offset((-45).dp, (-55).dp)
+            )
+            Text(
+                "Wind (km/h)",
+                fontWeight = FontWeight.Bold,
+                color = GrayD,
+                fontSize = weatherDataSize,
+                modifier = modifier.offset(65.dp, (-55).dp)
+            )
         }
-        Row{
+        Row {
             Text(
                 viewModel.chuva.value, fontWeight = FontWeight.Bold, fontSize = weatherDataSize,
-                modifier = modifier.offset((-80).dp,(-45).dp))
+                modifier = modifier.offset((-80).dp, (-45).dp)
+            )
             Text(
                 viewModel.vento.value, fontWeight = FontWeight.Bold, fontSize = weatherDataSize,
-                modifier = modifier.offset((85).dp,(-45).dp))
+                modifier = modifier.offset((85).dp, (-45).dp)
+            )
         }
-        Text("Uv",  fontWeight = FontWeight.Bold, color = GrayD, fontSize = weatherDataSize,
-            modifier = modifier.offset((0).dp,(-15).dp))
-        Text(
-            viewModel.uv.value,  fontWeight = FontWeight.Bold, fontSize = weatherDataSize,
-            modifier = modifier.offset((0).dp,(-15).dp))
-        Row{
+
+        Row {
 
             ExposedDropdownMenuBox(
                 expanded = expandedDay,
                 onExpandedChange = { expandedDay = !expandedDay },
-                modifier = modifier.width(105.dp).offset((-40).dp,(-20).dp).background(color = Color.Transparent)
+                modifier = modifier.width(105.dp).offset((-40).dp, (-20).dp)
+                    .background(color = Color.Transparent)
             ) {
                 TextField(
                     value = selectedDay,
@@ -329,7 +430,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
             ExposedDropdownMenuBox(
                 expanded = expandedMonth,
                 onExpandedChange = { expandedMonth = !expandedMonth },
-                modifier = modifier.width(125.dp).offset(45.dp,(-20).dp),
+                modifier = modifier.width(125.dp).offset(45.dp, (-20).dp),
 
                 ) {
                 TextField(
@@ -369,17 +470,17 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
             colors = ButtonColors(
                 containerColor = GreenL,
                 contentColor = White,
-                disabledContainerColor = GreenL,
-                disabledContentColor = GreenL,
+                disabledContainerColor = GrayD,
+                disabledContentColor = White,
             ),
             modifier = modifier
                 .height(50.dp)
-                .offset((-8).dp,(15).dp)
-                .border(3.dp, GreenL, RoundedCornerShape(25.dp)),
+                .offset((-8).dp, (15).dp)
+                .border(3.dp, Color.Transparent, RoundedCornerShape(25.dp)),
             onClick = {
 
             },
-
+            enabled = allButsDisabled
             ) {
             Text("Forecast date", fontSize = 16.sp)
         }
@@ -388,57 +489,86 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
             colors = ButtonColors(
                 containerColor = GreenL,
                 contentColor = White,
-                disabledContainerColor = GreenL,
-                disabledContentColor = GreenL,
+                disabledContainerColor = GrayD,
+                disabledContentColor = White,
             ),
             modifier = modifier
                 .height(50.dp)
-                .offset((-5).dp,(20).dp)
-                .border(3.dp, GreenL, RoundedCornerShape(25.dp)),
+                .offset((-5).dp, (20).dp)
+                .border(3.dp, Color.Transparent, RoundedCornerShape(25.dp)),
             onClick = {
-
+                showRecToday = true;
+                closeRecToday = false;
+                allButsDisabled = false
             },
-
+            enabled = allButsDisabled
             ) {
-            Text("Recommendations for today", fontSize = 16.sp)
+            Text("Recommendations (today)", fontSize = 16.sp)
+        }
+        Button(
+            colors = ButtonColors(
+                containerColor = GreenL,
+                contentColor = White,
+                disabledContainerColor = GrayD,
+                disabledContentColor = White,
+            ),
+            modifier = modifier
+                .height(50.dp)
+                .offset((-5).dp, (25).dp)
+                .border(3.dp, Color.Transparent, RoundedCornerShape(25.dp)),
+            onClick = {
+                showRec5Days = true
+                closeRec5Days = false
+                allButsDisabled = false
+            },
+            enabled = allButsDisabled
+            ) {
+            Text("Recommendations (next 5 days)", fontSize = 16.sp)
         }
 
 
-
-        val extraDays = (1..5).map { today.plusDays(it.toLong()).dayOfMonth.toString()+"/"+today.plusDays(it.toLong()).monthValue.toString() }
+        val extraDays =
+            (1..5).map { today.plusDays(it.toLong()).dayOfMonth.toString() + "/" + today.plusDays(it.toLong()).monthValue.toString() }
         Log.e("XR_LIST", extraDays.toString())
-        if(showFirstForecast){
+        if (showFirstForecast) {
+
             fetchHistoricalData()
             showFirstForecast = false
+            allButsDisabled = true;
         }
         Box(
             modifier = Modifier
 
                 .offset(0.dp, 45.dp)
-                .background( brush = Brush.verticalGradient( // Or Brush.horizontalGradient, Brush.linearGradient
-                    colors = listOf(
-                        Color(0xFF64B5F6), // Start color (light blue)
-                        Color(0xFF0D47A1)  // End color (dark blue)
-                    )
-                ), shape = RoundedCornerShape(15.dp))
+                .background(
+                    brush = Brush.verticalGradient( // Or Brush.horizontalGradient, Brush.linearGradient
+                        colors = listOf(
+                            Color(0xFF64B5F6), // Start color (light blue)
+                            Color(0xFF0D47A1)  // End color (dark blue)
+                        )
+                    ), shape = RoundedCornerShape(15.dp)
+                )
                 .border(3.dp, color = Color.Transparent, shape = RoundedCornerShape(15.dp))
                 .height(125.dp)
                 .width(175.dp),
             contentAlignment = Alignment.Center
         ) {
-            if (geminiResponse.isNotEmpty() ) {
+            if (geminiResponse.isNotEmpty()) {
                 val BrokenLines = countBrokenLines(geminiResponse)
 
-                Row{
-                    if( geminiResponse.contains("<img")
-                        ||  geminiResponse.contains("https")
-                        ||  geminiResponse.contains("Ensolarado")
-                        ||  geminiResponse.contains("Nublado")
-                        ||  geminiResponse.contains("Sunny")
-                        ||  geminiResponse.contains("Sol")
-                        || BrokenLines  < 5
-                    ){showFirstForecast = true
+                Row {
+                    if (geminiResponse.contains("<img")
+                        || geminiResponse.contains("https")
+                        || geminiResponse.contains("Ensolarado")
+                        || geminiResponse.contains("Nublado")
+                        || geminiResponse.contains("Sunny")
+                        || geminiResponse.contains("Sol")
+                        || BrokenLines < 5
+                    ) {
+                        showFirstForecast = true
+                        allButsDisabled = false;
                     } else {
+
                         Text(
                             text = geminiResponse,
                             fontSize = 16.sp,
@@ -449,7 +579,8 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                     }
 
                     Text(
-                        text = extraDays.toString().replace("["," ").replace("]","").replace(",","\n"),
+                        text = extraDays.toString().replace("[", " ").replace("]", "")
+                            .replace(",", "\n"),
                         fontSize = 16.sp,
                         color = White,
                         fontWeight = FontWeight.Bold
@@ -458,5 +589,125 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                 }
             }
         }
+        if (showRecToday == true && closeRecToday == false) {
+            if (showFirstRecToday) {
+                fetchHistoricalToday()
+                showFirstRecToday = false
+
+            }
+            Column(
+                modifier = modifier
+                    .shadow(5.dp, RoundedCornerShape(25.dp))
+                    .background(color = White, shape = RoundedCornerShape(25.dp))
+                    .fillMaxSize()
+                    .border(3.dp, color = White, shape = RoundedCornerShape(25.dp)),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = CenterHorizontally
+            ) {
+                Button(
+                    onClick = {
+                        showRecToday = false;
+                        closeRecToday = true;
+                        allButsDisabled = true;
+                    },
+                    modifier = modifier.background(
+                        color = Red,
+                        shape = RoundedCornerShape(25.dp)
+                    ).border(3.dp, color = Red, shape = RoundedCornerShape(25.dp)),
+                    colors = ButtonColors(
+                        disabledContentColor = White,
+                        disabledContainerColor = Red,
+                        contentColor = White,
+                        containerColor = Red
+                    )
+                ) {
+                    Text("X", fontSize = 16.sp, color = White)
+                }
+                if (isLoadingToday) {
+                    CircularProgressIndicator()
+
+                    Text("Loading recommendations", textAlign = TextAlign.Center, color = Black)
+                } else {
+                    if (geminiResponseToday.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState()) // Adiciona scroll se necessário
+                        ) {
+                            Text(
+                                geminiResponseToday,
+                                textAlign = TextAlign.Center,
+                                color = Black,
+                                fontSize = 16.sp,
+                                lineHeight = 24.sp,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
+
+                }
+            }
+        }
+
+
+        if (showRec5Days == true && closeRec5Days == false) {
+            if (showFirstRec5Days) {
+                fetchHistorical5Days()
+                showFirstRec5Days = false
+            }
+            Column(
+                modifier = modifier
+                    .shadow(5.dp, RoundedCornerShape(25.dp))
+                    .background(color = White, shape = RoundedCornerShape(25.dp))
+                    .fillMaxSize()
+                    .border(3.dp, color = White, shape = RoundedCornerShape(25.dp)),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = CenterHorizontally
+            ) {
+                Button(
+                    onClick = {
+                        showRec5Days = false;
+                        closeRec5Days = true;
+                        allButsDisabled = true;
+                    },
+                    modifier = modifier.background(
+                        color = Red,
+                        shape = RoundedCornerShape(25.dp)
+                    ).border(3.dp, color = Red, shape = RoundedCornerShape(25.dp)),
+                    colors = ButtonColors(
+                        disabledContentColor = White,
+                        disabledContainerColor = Red,
+                        contentColor = White,
+                        containerColor = Red
+                    )
+                ) {
+                    Text("X", fontSize = 16.sp, color = White)
+                }
+                if (isLoading5Days) {
+                    CircularProgressIndicator()
+
+                    Text("Loading recommendations", textAlign = TextAlign.Center, color = Black)
+                } else {
+                    if (geminiResponse5Days.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState()) // Adiciona scroll se necessário
+                        ) {
+                            Text(
+                                geminiResponse5Days,
+                                textAlign = TextAlign.Center,
+                                color = Black,
+                                fontSize = 16.sp,
+                                lineHeight = 24.sp,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
+
+                }
+            }
+        }
     }
+}
 }

@@ -24,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
-
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.DropdownMenuItem
@@ -32,37 +31,29 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
-
 import androidx.compose.material3.OutlinedTextField
-
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
-
-
 import androidx.compose.ui.Modifier
-
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-
 import androidx.compose.ui.platform.LocalContext
-
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
-
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.MapView
@@ -77,7 +68,6 @@ import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.weatheralert.model.City
-
 import com.weatheralert.ui.theme.GrayD
 import com.weatheralert.ui.theme.GrayL
 import com.weatheralert.ui.theme.GreenL
@@ -97,23 +87,16 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosVie
     val hasLocationPermission = ContextCompat.checkSelfPermission(
         context, Manifest.permission.ACCESS_FINE_LOCATION
     ) == PackageManager.PERMISSION_GRANTED
-
     val cameraPositionState = rememberCameraPositionState()
     val modelIa = GenerativeModel(modelName = "gemini-2.0-flash", apiKey = BuildConfig.GEMINI_API_KEY)
     var cityLong by rememberSaveable { mutableStateOf<Double?>(null) }
     var cityLati by rememberSaveable { mutableStateOf<Double?>(null) }
     var cityState by rememberSaveable { mutableStateOf<Boolean?>(false) }
-    var expandedDay by remember { mutableStateOf(false) }
     var expandedMap by remember { mutableStateOf(false) }
-    var expandedMonth by remember { mutableStateOf(false) }
     var cityShow by remember { mutableStateOf(false) }
-    var selectedDay by remember { mutableStateOf("Day") }
-    var selectedMonth by remember { mutableStateOf("Month") }
     var selectedMap by remember { mutableStateOf("Select map") }
     var CityName by remember { mutableStateOf("") }
     var CitySearch by remember { mutableStateOf(true) }
-    val optionsDay: List<String> = (1..31).map { it.toString() }
-    val optionsMonth: List<String> = (1..12).map { it.toString() }
     val optionsMap = listOf("Normal","MODIS Terra True Color")
     var map1Chooser by remember { mutableStateOf(true) }  // ← CORRETO
     var map2Chooser by remember { mutableStateOf(false) } // ← CORRETO
@@ -367,7 +350,7 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosVie
                 showFirstForecastMap = false
             }
             Column(
-                modifier = Modifier
+                modifier = modifier
                     .align(Alignment.TopCenter)
                     .padding(16.dp)
                     .background(brush = Brush.verticalGradient( // Or Brush.horizontalGradient, Brush.linearGradient
@@ -430,9 +413,9 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosVie
                                 .offset(0.dp,(-5).dp)
 
                         )
-                }
+                    }
 
-            }
+                }
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                     Column {
@@ -455,98 +438,9 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosVie
                         Text(viewModel.ventoMap.value, fontWeight = FontWeight.Bold)
                     }
                 }
+
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("UV Index", color = GrayD)
-                Text(viewModel.uvMap.value, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row{
-                    ExposedDropdownMenuBox(
-                        expanded = expandedDay,
-                        onExpandedChange = { expandedDay = !expandedDay },
-                        modifier = modifier.width(105.dp).background(color = Color.Transparent)
-                    ) {
-                        TextField(
-                            value = selectedDay,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDay) },
-                            modifier = Modifier.menuAnchor(),
-                            colors = ExposedDropdownMenuDefaults.textFieldColors(
-                                unfocusedIndicatorColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedContainerColor = Color.Transparent
-                            )
-                        )
-                        ExposedDropdownMenu(
-                            expanded = expandedDay,
-                            onDismissRequest = { expandedDay = false },
-                            containerColor = White,
-                            modifier = modifier.background(color = Color.Transparent)
-                        ) {
 
-                            optionsDay.forEach { selectionOption ->
-                                DropdownMenuItem(
-                                    text = { Text(selectionOption) },
-                                    onClick = {
-                                        selectedDay = selectionOption
-                                        expandedDay = false
-                                    },
-
-                                    )
-                            }
-                        }
-                    }
-                    ExposedDropdownMenuBox(
-                        expanded = expandedMonth,
-                        onExpandedChange = { expandedMonth = !expandedMonth },
-                        modifier = modifier.width(125.dp).offset(45.dp,0.dp).background(color = Color.Transparent)
-                    ) {
-                        TextField(
-                            value = selectedMonth,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedMonth) },
-                            modifier = Modifier.menuAnchor(),
-                            colors = ExposedDropdownMenuDefaults.textFieldColors(
-                                unfocusedIndicatorColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedContainerColor = Color.Transparent
-                            )
-                        )
-                        ExposedDropdownMenu(
-                            expanded = expandedMonth,
-                            onDismissRequest = { expandedMonth = false },
-                            containerColor = White,
-                            modifier = modifier.background(color = Color.Transparent)
-                        ) {
-                            optionsMonth.forEach { selectionOption ->
-                                DropdownMenuItem(
-                                    text = { Text(selectionOption) },
-                                    onClick = {
-                                        selectedMonth = selectionOption
-                                        expandedMonth = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Button(
-                    colors = ButtonColors(
-                        containerColor = GreenL,
-                        contentColor = White,
-                        disabledContainerColor = GreenL,
-                        disabledContentColor = GreenL,
-                    ),
-                    modifier = modifier.height(50.dp).offset(85.dp,30.dp).border(3.dp, GreenL, RoundedCornerShape(25.dp)),
-                    onClick = {
-                    },
-                ) {
-                    Text("Forecast")
-                }
                 if (geminiResponse.isNotEmpty() ) {
                     val BrokenLines = countBrokenLines(geminiResponse)
                     Box(
@@ -574,7 +468,8 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosVie
                                 ||geminiResponse.contains("Nublado")
                                 ||geminiResponse.contains(".png")
                                 ||BrokenLines < 5
-                                ){showFirstForecastMap = true
+                                ||(geminiResponse.contains(".")&&geminiResponse.contains(","))
+                            ){showFirstForecastMap = true
                             } else {
                                 Text(
                                     text = geminiResponse,
@@ -643,7 +538,6 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosVie
                             if (cityState == true && viewModel.cidadeMap.value.isNotBlank()) {
                                 val city = City(
                                     name = viewModel.cidadeMap.value,
-
                                 )
                                 favoritosViewModel.addFavoriteCity(city)
                                 isFavorite = true
@@ -700,151 +594,59 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosVie
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("UV Index", color = GrayD)
-                Text(viewModel.uvSearch.value, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row{
-                    ExposedDropdownMenuBox(
-                        expanded = expandedDay,
-                        onExpandedChange = { expandedDay = !expandedDay },
-                        modifier = modifier.width(105.dp).background(color = Color.Transparent)
-                    ) {
-                        TextField(
-                            value = selectedDay,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDay) },
-                            modifier = Modifier.menuAnchor(),
-                            colors = ExposedDropdownMenuDefaults.textFieldColors(
-                                unfocusedIndicatorColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedContainerColor = Color.Transparent
-                            )
-                        )
-                        ExposedDropdownMenu(
-                            expanded = expandedDay,
-                            onDismissRequest = { expandedDay = false },
-                            containerColor = White,
-                            modifier = modifier.background(color = Color.Transparent)
-                        ) {
 
-                            optionsDay.forEach { selectionOption ->
-                                DropdownMenuItem(
-                                    text = { Text(selectionOption) },
-                                    onClick = {
-                                        selectedDay = selectionOption
-                                        expandedDay = false
-                                    },
+                if (geminiResponse.isNotEmpty() ) {
+                    Box(
+                        modifier = Modifier
 
-                                    )
-                            }
-                        }
-                    }
-                    ExposedDropdownMenuBox(
-                        expanded = expandedMonth,
-                        onExpandedChange = { expandedMonth = !expandedMonth },
-                        modifier = modifier.width(125.dp).offset(45.dp,0.dp).background(color = Color.Transparent)
-                    ) {
-                        TextField(
-                            value = selectedMonth,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedMonth) },
-                            modifier = Modifier.menuAnchor(),
-                            colors = ExposedDropdownMenuDefaults.textFieldColors(
-                                unfocusedIndicatorColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedContainerColor = Color.Transparent
-                            )
-                        )
-                        ExposedDropdownMenu(
-                            expanded = expandedMonth,
-                            onDismissRequest = { expandedMonth = false },
-                            containerColor = White,
-                            modifier = modifier.background(color = Color.Transparent)
-                        ) {
-                            optionsMonth.forEach { selectionOption ->
-                                DropdownMenuItem(
-                                    text = { Text(selectionOption) },
-                                    onClick = {
-                                        selectedMonth = selectionOption
-                                        expandedMonth = false
-                                    }
+                            .offset(45.dp, 45.dp)
+                            .background( brush = Brush.verticalGradient( // Or Brush.horizontalGradient, Brush.linearGradient
+                                colors = listOf(
+                                    Color(0xFF64B5F6), // Start color (light blue)
+                                    Color(0xFF0D47A1)  // End color (dark blue)
                                 )
-                            }
-                        }
-                    }
-                }
+                            ), shape = RoundedCornerShape(15.dp))
+                            .border(0.dp, color = GrayL, shape = RoundedCornerShape(15.dp))
+                            .height(125.dp)
+                            .width(175.dp)
+                            .size(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
 
-                Button(
-                    colors = ButtonColors(
-                        containerColor = GreenL,
-                        contentColor = White,
-                        disabledContainerColor = GreenL,
-                        disabledContentColor = GreenL,
-                    ),
-                    modifier = modifier.height(50.dp).offset(85.dp,30.dp).border(3.dp, GreenL, RoundedCornerShape(25.dp)),
-                    onClick = {
-                    },
-                ) {
-                    Text("Forecast")
-                }
-
-                    if (geminiResponse.isNotEmpty() ) {
-                        Box(
-                            modifier = Modifier
-
-                                .offset(45.dp, 45.dp)
-                                .background( brush = Brush.verticalGradient( // Or Brush.horizontalGradient, Brush.linearGradient
-                                    colors = listOf(
-                                        Color(0xFF64B5F6), // Start color (light blue)
-                                        Color(0xFF0D47A1)  // End color (dark blue)
-                                    )
-                                ), shape = RoundedCornerShape(15.dp))
-                                .border(0.dp, color = GrayL, shape = RoundedCornerShape(15.dp))
-                                .height(125.dp)
-                                .width(175.dp)
-                                .size(200.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row{
-                                val extraDays = (1..5).map { today.plusDays(it.toLong()).dayOfMonth.toString()+"/"+today.plusDays(it.toLong()).monthValue.toString() }
-                                if(geminiResponse.contains("<img")
-                                    ||geminiResponse.contains("https")
-                                    ||geminiResponse.contains(".png")
-                                    ||geminiResponse.contains("png")
-                                    ||geminiResponse.contains("Ensolarado")
-                                    ||geminiResponse.contains("Nublado")
-                                    ||geminiResponse.length < 15
-                                    ||geminiResponse.length < 20
-                                    ||geminiResponse.length < 30){showFirstForecast = true
-                                } else {
-                                    Text(
-                                        text = geminiResponse,
-                                        fontSize = 16.sp,
-                                        color = White,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 5
-                                    )
-                                }
-
+                        Row{
+                            val BrokenLines = countBrokenLines(geminiResponse)
+                            val extraDays = (1..5).map { today.plusDays(it.toLong()).dayOfMonth.toString()+"/"+today.plusDays(it.toLong()).monthValue.toString() }
+                            if(geminiResponse.contains("<img")
+                                ||geminiResponse.contains("https")
+                                ||geminiResponse.contains(".png")
+                                ||geminiResponse.contains("png")
+                                ||geminiResponse.contains("Ensolarado")
+                                ||geminiResponse.contains("Nublado")
+                                ||BrokenLines < 5
+                                ||(geminiResponse.contains(".")&&geminiResponse.contains(","))
+                            ){showFirstForecast = true
+                            } else {
                                 Text(
-                                    text = extraDays.toString().replace("["," ").replace("]","").replace(",","\n"),
+                                    text = geminiResponse,
                                     fontSize = 16.sp,
                                     color = White,
-                                    fontWeight = FontWeight.Bold
-
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 5
                                 )
                             }
 
+                            Text(
+                                text = extraDays.toString().replace("["," ").replace("]","").replace(",","\n"),
+                                fontSize = 16.sp,
+                                color = White,
+                                fontWeight = FontWeight.Bold
+
+                            )
                         }
+
                     }
-
+                }
             }
-
         }
-
     }
 }
