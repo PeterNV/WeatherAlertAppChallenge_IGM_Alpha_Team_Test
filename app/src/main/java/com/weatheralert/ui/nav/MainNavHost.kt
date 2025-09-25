@@ -5,7 +5,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.weatheralert.FavoritePage
-import com.weatheralert.FavoritosViewModel
+import com.weatheralert.FavoritesViewModel
 import com.weatheralert.HomePage
 import com.weatheralert.MainViewModel
 import com.weatheralert.MapPage
@@ -13,7 +13,7 @@ import com.weatheralert.MapPage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainNavHost(navController: NavHostController,viewModel: MainViewModel,    favoritosViewModel: FavoritosViewModel) {
+fun MainNavHost(navController: NavHostController,viewModel: MainViewModel,    favoritosViewModel: FavoritesViewModel) {
     NavHost(navController, startDestination = Route.Home.route) {
         composable(Route.Home.route) { HomePage(viewModel = viewModel) }
         composable(Route.List.route) { FavoritePage(viewModel = favoritosViewModel) }

@@ -1,6 +1,5 @@
 package com.weatheralert.repo
 
-// Repository.kt
 import android.content.Context
 import android.content.SharedPreferences
 import com.google.gson.Gson
@@ -31,10 +30,6 @@ class Repository(context: Context) {
         val currentFavorites = getFavoriteCities().toMutableList()
         currentFavorites.removeAll { it.name == city.name }
         saveFavoriteCities(currentFavorites)
-    }
-
-    suspend fun isCityFavorite(cityName: String): Boolean {
-        return getFavoriteCities().any { it.name == cityName }
     }
 
     private fun getFavoriteCities(): List<City> {

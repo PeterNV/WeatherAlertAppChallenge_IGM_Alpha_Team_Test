@@ -21,6 +21,7 @@ import com.weatheralert.model.City
 import com.weatheralert.ui.theme.Black
 import com.weatheralert.ui.theme.White
 import android.app.Application
+
 import android.util.Log
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Row
@@ -33,29 +34,42 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.simulateHotReload
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+
 import coil.compose.AsyncImage
+
 import com.weatheralert.api.WeatherApiResponse
 import com.weatheralert.api.WeatherServiceAPI
 import com.weatheralert.repo.Repository
+import com.weatheralert.ui.theme.GrayD
+import com.weatheralert.ui.theme.GreenL
+
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+
 import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-
+import java.time.LocalDate
 
 // Data class para armazenar dados meteorológicos de cada cidade
 data class CityWeatherData(
@@ -64,13 +78,13 @@ data class CityWeatherData(
     val humidity: String = "--",
     val rain: String = "--",
     val wind: String = "--",
-    val uv: String = "--",
+
     val weatherIcon: String = "",
     val isLoading: Boolean = false,
     val error: String? = null
 )
 
-class FavoritosViewModel(application: Application) : AndroidViewModel(application) {
+class FavoritesViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = Repository(application)
     val favoriteCities = repository.favoriteCities
 
@@ -83,6 +97,7 @@ class FavoritosViewModel(application: Application) : AndroidViewModel(applicatio
             repository.addFavoriteCity(city)
             // Carrega dados meteorológicos quando uma cidade é adicionada
             loadWeatherData(city.name)
+
         }
     }
 
@@ -90,6 +105,7 @@ class FavoritosViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             repository.addFavoriteCity(City(name = name))
             loadWeatherData(name)
+
         }
     }
 
@@ -111,6 +127,7 @@ class FavoritosViewModel(application: Application) : AndroidViewModel(applicatio
             favoriteCities.collect { cities ->
                 cities.forEach { city ->
                     loadWeatherData(city.name)
+
                 }
             }
         }
@@ -134,7 +151,7 @@ class FavoritosViewModel(application: Application) : AndroidViewModel(applicatio
                         humidity = data?.current?.humidity?.toString() ?: "--",
                         rain = data?.current?.precip_mm?.toString() ?: "--",
                         wind = data?.current?.wind_kph?.toString() ?: "--",
-                        uv = data?.current?.uv?.toString() ?: "--",
+
                         weatherIcon = "https:${data?.current?.condition?.icon ?: ""}",
                         isLoading = false
                     )
@@ -188,14 +205,19 @@ class FavoritosViewModel(application: Application) : AndroidViewModel(applicatio
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritosViewModel) {
+fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
     val favoriteCities by viewModel.favoriteCities.collectAsState(initial = emptyList())
     val citiesWeatherData by viewModel.citiesWeatherData.collectAsState()
-
-
+    val today = LocalDate.now()
+    val optionsDay: List<String> = (1..31).map { it.toString() }
+    val optionsMonth: List<String> = (today.monthValue..12).map { it.toString() }
+    var expandedDay by remember { mutableStateOf(false) }
+    var expandedMonth by remember { mutableStateOf(false) }
     var historicalWeatherData by remember { mutableStateOf("") }
-
+    var selectedDay by remember { mutableStateOf("Day") }
+    var selectedMonth by remember { mutableStateOf("Month") }
 
 
     val context = LocalContext.current
@@ -295,15 +317,123 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritosViewModel) {
                                 color = Black,
                                 fontSize = 14.sp
                             )
-                            Text(
-                                text = "Uv: ${weatherData.uv} ",
-                                color = Black,
-                                fontSize = 14.sp
-                            )
-
 
                         }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row {
 
+                            ExposedDropdownMenuBox(
+                                expanded = expandedDay,
+                                onExpandedChange = { expandedDay = !expandedDay },
+                                modifier = modifier.width(105.dp).offset((-40).dp, (-20).dp)
+                                    .background(color = Color.Transparent)
+                            ) {
+                                TextField(
+                                    value = selectedDay,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDay) },
+                                    modifier = Modifier.menuAnchor(),
+                                    colors = ExposedDropdownMenuDefaults.textFieldColors(
+                                        unfocusedIndicatorColor = Color.Transparent,
+                                        focusedIndicatorColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        focusedContainerColor = Color.Transparent
+                                    )
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = expandedDay,
+                                    onDismissRequest = { expandedDay = false },
+                                    containerColor = White,
+                                    modifier = modifier.background(color = Color.Transparent)
+                                ) {
+
+                                    optionsDay.forEach { selectionOption ->
+                                        DropdownMenuItem(
+                                            text = { Text(selectionOption) },
+                                            onClick = {
+                                                selectedDay = selectionOption
+                                                expandedDay = false
+                                            },
+
+                                            )
+                                    }
+                                }
+                            }
+                            ExposedDropdownMenuBox(
+                                expanded = expandedMonth,
+                                onExpandedChange = { expandedMonth = !expandedMonth },
+                                modifier = modifier.width(125.dp).offset(45.dp, (-20).dp),
+
+                                ) {
+                                TextField(
+                                    value = selectedMonth,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedMonth) },
+                                    modifier = Modifier.menuAnchor(),
+                                    colors = ExposedDropdownMenuDefaults.textFieldColors(
+                                        unfocusedIndicatorColor = Color.Transparent,
+                                        focusedIndicatorColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        focusedContainerColor = Color.Transparent
+                                    )
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = expandedMonth,
+                                    onDismissRequest = { expandedMonth = false },
+                                    modifier = modifier.background(color = White),
+
+                                    ) {
+                                    optionsMonth.forEach { selectionOption ->
+                                        DropdownMenuItem(
+                                            text = { Text(selectionOption) },
+                                            onClick = {
+                                                selectedMonth = selectionOption
+                                                expandedMonth = false
+                                            },
+
+                                            )
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            colors = ButtonColors(
+                                containerColor = GreenL,
+                                contentColor = White,
+                                disabledContainerColor = GrayD,
+                                disabledContentColor = White,
+                            ),
+                            modifier = modifier
+                                .height(50.dp)
+                                .border(3.dp, Color.Transparent, RoundedCornerShape(25.dp)),
+                            onClick = {
+
+                            },
+
+                        ) {
+                            Text("Forecast date", fontSize = 16.sp)
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            colors = ButtonColors(
+                                containerColor = GreenL,
+                                contentColor = White,
+                                disabledContainerColor = GrayD,
+                                disabledContentColor = White,
+                            ),
+                            modifier = modifier
+                                .height(50.dp)
+                                .border(3.dp, Color.Transparent, RoundedCornerShape(25.dp)),
+                            onClick = {
+
+                            },
+
+                        ) {
+                            Text("Recommendations (today)", fontSize = 16.sp)
+                        }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                 }

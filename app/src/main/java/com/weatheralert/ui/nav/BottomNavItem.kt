@@ -12,9 +12,7 @@ sealed class Route(val route: String) {
     data object List : Route("list")
     data object Map : Route("map")
 
-    var value: String
-        get() = TODO("Not yet implemented")
-        set(value) {}
+
 }
 
 sealed class BottomNavItem(

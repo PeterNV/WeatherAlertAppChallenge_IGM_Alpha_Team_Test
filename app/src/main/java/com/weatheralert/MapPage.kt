@@ -81,7 +81,7 @@ import java.net.URL
 
 @ExperimentalMaterial3Api
 @Composable
-fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosViewModel: FavoritosViewModel) {
+fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosViewModel: FavoritesViewModel) {
     val context = LocalContext.current
     val currentTime = LocalDate.now()
     val hasLocationPermission = ContextCompat.checkSelfPermission(
@@ -367,6 +367,7 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosVie
                     Button(onClick = {
                         cityState = false;
                         showFirstForecastMap = false;
+                        isFavorite = false;
                     },
                         modifier = modifier.height(50.dp).offset(0.dp,(-10).dp),
                         colors = ButtonColors(
@@ -411,7 +412,6 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosVie
                             modifier = Modifier
                                 .size(35.dp)
                                 .offset(0.dp,(-5).dp)
-
                         )
                     }
 
@@ -521,6 +521,7 @@ fun MapPage(modifier: Modifier = Modifier, viewModel: MainViewModel,favoritosVie
                         cityShow = false;
                         CitySearch = true;
                         showFirstForecastMap = false;
+                        isFavorite = false;
                     },
                         modifier = modifier.height(50.dp).offset(0.dp,(-10).dp),
                         colors = ButtonColors(

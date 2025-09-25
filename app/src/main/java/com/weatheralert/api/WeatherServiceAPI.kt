@@ -15,9 +15,7 @@ interface WeatherServiceAPI {
     @GET("forecast.json")
     fun getWeatherForecast(
         @Query("q") location: String,  // pode ser "latitude,longitude"
-        @Query("days") days: Int = 5,  // próximos 5 dias
-        @Query("aqi") aqi: String = "no",
-        @Query("alerts") alerts: String = "no",
+
         @Query("key") apiKey: String = API_KEY
     ): Call<WeatherApiResponse>
 

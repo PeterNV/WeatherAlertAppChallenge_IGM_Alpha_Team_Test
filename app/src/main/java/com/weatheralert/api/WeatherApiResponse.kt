@@ -2,9 +2,7 @@ package com.weatheralert.api
 
 data class WeatherApiResponse(
     val location: LocationData?,
-    val current: CurrentWeather?,
-    val forecast: Forecast?,
-    val season: Season?
+    val current: CurrentWeather?
 )
 
 data class LocationData(
@@ -27,21 +25,7 @@ data class Conditions(
     val icon: String?
 )
 
-data class Forecast(
-    val forecastday: List<ForecastDay>?
-)
-data class Season(
-    val seasonMonth: List<Season>?
-)
-data class ForecastDay(
-    val date: String?,
-    val day: DayData?
-)
 
-data class DayData(
-    val avgtemp_c: Double?,
-    val avghumidity: Double?,
-    val totalprecip_mm: Double?,
-    val maxwind_kph: Double?,
-    val uv: Double?
-)
+
+
+

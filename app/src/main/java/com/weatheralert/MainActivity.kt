@@ -1,6 +1,7 @@
 package com.weatheralert
 
 import android.Manifest
+import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
@@ -21,9 +22,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,12 +43,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
@@ -65,10 +62,8 @@ import com.weatheralert.ui.theme.White
 import coil.compose.AsyncImage
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.android.gms.location.Priority
-import com.weatheralert.ui.theme.Black
 import com.weatheralert.ui.theme.GrayD
 import com.weatheralert.ui.theme.GreenL
-import com.weatheralert.ui.theme.Red
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -77,7 +72,7 @@ import java.time.LocalTime
 class MainActivity : ComponentActivity() {
 
     private val mainViewModel: MainViewModel by viewModels()
-    private val favoritosViewModel: FavoritosViewModel by viewModels()
+    private val favoritosViewModel: FavoritesViewModel by viewModels()
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -245,7 +240,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                             "${viewModel.chuva.value}mm/h, ${viewModel.vento.value}km/h e índice de uv: ${viewModel.uv.value}"
 
                 val weatherPrompt2 =
-                    "Quais são as recomendações, que tenham haver com trabalho, estudo, lazer, praticar esportes, lanche, sair de casa, etc. "
+                    "Quais são as recomendações, que tenham haver com trabalho, estudo, lazer, sair de casa, saúde, etc. Lembre-se também de avisar se é seguro sair de casa ou não."
 
                 // Gerar previsão com Gemini em uma corrotina separada
                 CoroutineScope(Dispatchers.IO).launch {
@@ -278,7 +273,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                     "Considerando que estou em ${viewModel.cidade.value}, e essas são as previsões para os próximos 5 dias "+geminiResponse
 
                 val weatherPrompt2 =
-                    "Quais são as recomendações para os próximos 5 dias, que tenham haver com trabalho, estudo, lazer, praticar esportes, lanche, sair de casa, etc.? "
+                    "Quais são as recomendações para os próximos 5 dias, que tenham haver com trabalho, estudo, lazer,  sair de casa, etc.? Lembre-se também de avisar se é seguro sair de casa ou não."
 
                 // Gerar previsão com Gemini em uma corrotina separada
                 CoroutineScope(Dispatchers.IO).launch {
@@ -563,14 +558,17 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                         || geminiResponse.contains("Nublado")
                         || geminiResponse.contains("Sunny")
                         || geminiResponse.contains("Sol")
+                        || geminiResponse.contains("png")
+                        || geminiResponse.contains(".png")
                         || BrokenLines < 5
+                        || BrokenLines > 5
                     ) {
                         showFirstForecast = true
                         allButsDisabled = false;
                     } else {
 
                         Text(
-                            text = geminiResponse,
+                            text = geminiResponse.replace("*",""),
                             fontSize = 16.sp,
                             color = White,
                             fontWeight = FontWeight.Bold,
@@ -589,124 +587,70 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                 }
             }
         }
-        if (showRecToday == true && closeRecToday == false) {
-            if (showFirstRecToday) {
-                fetchHistoricalToday()
-                showFirstRecToday = false
-
-            }
-            Column(
-                modifier = modifier
-                    .shadow(5.dp, RoundedCornerShape(25.dp))
-                    .background(color = White, shape = RoundedCornerShape(25.dp))
-                    .fillMaxSize()
-                    .border(3.dp, color = White, shape = RoundedCornerShape(25.dp)),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = CenterHorizontally
-            ) {
-                Button(
-                    onClick = {
-                        showRecToday = false;
-                        closeRecToday = true;
-                        allButsDisabled = true;
-                    },
-                    modifier = modifier.background(
-                        color = Red,
-                        shape = RoundedCornerShape(25.dp)
-                    ).border(3.dp, color = Red, shape = RoundedCornerShape(25.dp)),
-                    colors = ButtonColors(
-                        disabledContentColor = White,
-                        disabledContainerColor = Red,
-                        contentColor = White,
-                        containerColor = Red
-                    )
-                ) {
-                    Text("X", fontSize = 16.sp, color = White)
+        if (showRecToday && !closeRecToday) {
+                if (showFirstRecToday) {
+                    fetchHistoricalToday()
+                    showFirstRecToday = false
                 }
+
                 if (isLoadingToday) {
+
                     CircularProgressIndicator()
 
-                    Text("Loading recommendations", textAlign = TextAlign.Center, color = Black)
                 } else {
+
                     if (geminiResponseToday.isNotEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState()) // Adiciona scroll se necessário
-                        ) {
-                            Text(
-                                geminiResponseToday,
-                                textAlign = TextAlign.Center,
-                                color = Black,
-                                fontSize = 16.sp,
-                                lineHeight = 24.sp,
-                                modifier = Modifier.padding(8.dp)
-                            )
+                        val builder = AlertDialog.Builder(context)
+
+                        builder.setNegativeButton("X") { dialog,_ ->
+
+                            allButsDisabled = true
+                            showRecToday =  false
+                            closeRecToday = true
+                            dialog.dismiss()
                         }
+                        builder.setTitle("Recommendations (Today)")
+                        builder.setMessage(geminiResponseToday.replace("*",""))
+
+                        val dialog = builder.create()
+                        dialog.show()
                     }
 
                 }
-            }
+
         }
 
 
-        if (showRec5Days == true && closeRec5Days == false) {
+        if (showRec5Days && !closeRec5Days) {
             if (showFirstRec5Days) {
                 fetchHistorical5Days()
                 showFirstRec5Days = false
             }
-            Column(
-                modifier = modifier
-                    .shadow(5.dp, RoundedCornerShape(25.dp))
-                    .background(color = White, shape = RoundedCornerShape(25.dp))
-                    .fillMaxSize()
-                    .border(3.dp, color = White, shape = RoundedCornerShape(25.dp)),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = CenterHorizontally
-            ) {
-                Button(
-                    onClick = {
-                        showRec5Days = false;
-                        closeRec5Days = true;
-                        allButsDisabled = true;
-                    },
-                    modifier = modifier.background(
-                        color = Red,
-                        shape = RoundedCornerShape(25.dp)
-                    ).border(3.dp, color = Red, shape = RoundedCornerShape(25.dp)),
-                    colors = ButtonColors(
-                        disabledContentColor = White,
-                        disabledContainerColor = Red,
-                        contentColor = White,
-                        containerColor = Red
-                    )
-                ) {
-                    Text("X", fontSize = 16.sp, color = White)
-                }
+
                 if (isLoading5Days) {
+
                     CircularProgressIndicator()
 
-                    Text("Loading recommendations", textAlign = TextAlign.Center, color = Black)
                 } else {
+
                     if (geminiResponse5Days.isNotEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState()) // Adiciona scroll se necessário
-                        ) {
-                            Text(
-                                geminiResponse5Days,
-                                textAlign = TextAlign.Center,
-                                color = Black,
-                                fontSize = 16.sp,
-                                lineHeight = 24.sp,
-                                modifier = Modifier.padding(8.dp)
-                            )
+                        val builder = AlertDialog.Builder(context)
+
+                        builder.setNegativeButton("X") { dialog,_ ->
+                            allButsDisabled = true
+                            showRec5Days = false
+                            closeRec5Days = true
+                            dialog.dismiss()
                         }
+                        builder.setTitle("Recommendations (next 5 days)")
+                        builder.setMessage(geminiResponse5Days.replace("*",""))
+
+                        val dialog = builder.create()
+                        dialog.show()
                     }
 
                 }
-            }
+
         }
     }
 }
