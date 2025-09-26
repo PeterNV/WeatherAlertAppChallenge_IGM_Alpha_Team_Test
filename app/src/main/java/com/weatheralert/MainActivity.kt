@@ -150,8 +150,7 @@ class MainActivity : ComponentActivity() {
 fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
     val today = LocalDate.now()
     val todayHour = LocalTime.now()
-    val modelIa =
-        GenerativeModel(modelName = "gemini-2.0-flash", apiKey = BuildConfig.GEMINI_API_KEY)
+    val modelIa = GenerativeModel(modelName = "gemini-2.0-flash", apiKey = BuildConfig.GEMINI_API_KEY)
     val context = LocalContext.current
 
     var expandedDay by remember { mutableStateOf(false) }
@@ -160,6 +159,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
     var allButsDisabled by remember { mutableStateOf(false) }
     var showFirstRecToday by remember { mutableStateOf(true) }
     var showFirstRec5Days by remember { mutableStateOf(true) }
+    var showFirstRecDateChoose by remember { mutableStateOf(true) }
     var selectedDay by remember { mutableStateOf("Day") }
     var selectedMonth by remember { mutableStateOf("Month") }
     val weatherDataSize by remember { mutableStateOf(18.sp) }
@@ -182,12 +182,18 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
 
     var closeRec5Days by remember { mutableStateOf(false) }
     var showRec5Days by remember { mutableStateOf(false) }
+
+    var closeDateChoose by remember { mutableStateOf(false) }
+    var showDateChoose by remember { mutableStateOf(false) }
+
     var geminiResponse by remember { mutableStateOf("") }
     var geminiResponseToday by remember { mutableStateOf("") }
     var geminiResponse5Days by remember { mutableStateOf("") }
+    var geminiResponseDateChoose by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var isLoadingToday by remember { mutableStateOf(false) }
     var isLoading5Days by remember { mutableStateOf(false) }
+    var isLoadingDateChoose by remember { mutableStateOf(false) }
     val fetchHistoricalData: () -> Unit = {
         if (viewModel.cidade.value.isNotBlank()) {
             isLoading = true
@@ -291,6 +297,40 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
             }
         } else {
             geminiResponseToday = "Por favor, selecione uma cidade primeiro"
+        }
+    }
+    val fetchHistoricalDateChoose: () -> Unit = {
+        if (viewModel.cidade.value.isNotBlank()) {
+            isLoadingDateChoose = true
+            geminiResponseDateChoose = ""
+
+            fetchHistoricalWeatherData(viewModel.cidade.value, context) { data ->
+                historicalWeatherData = data
+
+                // Agora gerar o conteúdo com Gemini
+                val weatherPrompt1 =
+                    "Considerando que estou em ${viewModel.cidade.value}, qual é a previsão para "+selectedDay+"/"+selectedMonth+"/"+today.year+"?"+" Considere esses dados de 9 dias anteriores a hoje ($today): $historicalWeatherData"
+
+                val weatherPrompt2 =
+                    "Quais são as recomendações para essa data, que tenham haver com trabalho, estudo, lazer,  sair de casa, etc.? Lembre-se também de avisar se é seguro sair de casa ou não. E caso a data seja invalida reponda apenas DATA INVALIDA, e lembre-se de que hoje é "+
+                    "$today"+"."
+
+                // Gerar previsão com Gemini em uma corrotina separada
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val fullPrompt = weatherPrompt1 + weatherPrompt2
+                        val response = modelIa.generateContent(fullPrompt)
+                        geminiResponseDateChoose =
+                            response.text ?: "Não foi possível gerar recomendações"
+                    } catch (e: Exception) {
+                        geminiResponseDateChoose = "Erro ao gerar previsão: ${e.message}"
+                    } finally {
+                        isLoadingDateChoose = false
+                    }
+                }
+            }
+        } else {
+            geminiResponseDateChoose = "Por favor, selecione uma cidade primeiro"
         }
     }
     Box(modifier = modifier.fillMaxSize()) {
@@ -473,7 +513,9 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                 .offset((-8).dp, (15).dp)
                 .border(3.dp, Color.Transparent, RoundedCornerShape(25.dp)),
             onClick = {
-
+                showDateChoose  = true
+                closeDateChoose = false
+                allButsDisabled = false
             },
             enabled = allButsDisabled
             ) {
@@ -522,9 +564,8 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
         }
 
 
-        val extraDays =
-            (1..5).map { today.plusDays(it.toLong()).dayOfMonth.toString() + "/" + today.plusDays(it.toLong()).monthValue.toString() }
-        Log.e("XR_LIST", extraDays.toString())
+        val extraDays = (1..5).map { today.plusDays(it.toLong()).dayOfMonth.toString() + "/" + today.plusDays(it.toLong()).monthValue.toString() }
+
         if (showFirstForecast) {
 
             fetchHistoricalData()
@@ -617,7 +658,6 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                     }
 
                 }
-
         }
 
 
@@ -650,7 +690,38 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                     }
 
                 }
+            }
 
+        if (showDateChoose && !closeDateChoose) {
+            if (showFirstRecDateChoose) {
+                fetchHistoricalDateChoose()
+                showFirstRecDateChoose = false
+            }
+
+            if (isLoadingDateChoose) {
+
+                CircularProgressIndicator()
+
+            } else {
+
+                if (geminiResponseDateChoose.isNotEmpty()) {
+                    val builder = AlertDialog.Builder(context)
+
+                    builder.setNegativeButton("X") { dialog,_ ->
+                        allButsDisabled = true
+                        showDateChoose  = false
+                        closeDateChoose = true
+                        showFirstRecDateChoose = true
+                        dialog.dismiss()
+                    }
+                    builder.setTitle("Recommendations (date choose)")
+                    builder.setMessage(geminiResponseDateChoose.replace("*",""))
+
+                    val dialog = builder.create()
+                    dialog.show()
+                }
+
+            }
         }
     }
 }
