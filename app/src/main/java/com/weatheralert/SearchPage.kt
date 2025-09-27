@@ -1,5 +1,6 @@
 package com.weatheralert
 
+
 import android.app.AlertDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -264,7 +265,7 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
                 TextField(
                     value = selectedCity,
                     onValueChange = {showFirstForecast = true
-                                    Log.d(String.toString(),showFirstForecast.toString())},
+                        Log.d(String.toString(),showFirstForecast.toString())},
                     readOnly = true,
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCity) },
                     modifier = Modifier.menuAnchor(),
@@ -728,10 +729,10 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
                             showRecToday = true
                             closeRecToday = false
                             allButsDisabled = false
-                            showFirstRecDateChoose = true;
+                            showFirstRecDateChoose = true
                         },
                         enabled = allButsDisabled
-                        ) {
+                    ) {
                         Text("Recommendations (today)", fontSize = 16.sp)
                     }
                     Button(
