@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -24,6 +23,7 @@ import android.app.Application
 
 import android.util.Log
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -45,7 +45,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.simulateHotReload
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -229,32 +229,28 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
     val context = LocalContext.current
     var closeDateChoose by remember { mutableStateOf(false) }
     var showDateChoose by remember { mutableStateOf(false) }
-    var allButsDisabled by remember { mutableStateOf(true) }
+    var allButsDisabled by remember { mutableStateOf(false) }
     var showFirstRecDateChoose by remember { mutableStateOf(true) }
     var isLoadingToday by remember { mutableStateOf(false) }
     var geminiResponseToday by remember { mutableStateOf("") }
     var closeRecToday by remember { mutableStateOf(false) }
     var showRecToday by remember { mutableStateOf(false) }
     var showFirstRecToday by remember { mutableStateOf(true) }
+    var closeRec5Days by remember { mutableStateOf(false) }
+    var showRec5Days by remember { mutableStateOf(false) }
+    var showFirstForecast by remember { mutableStateOf(false) }
+    var isLoading5Days by remember { mutableStateOf(false) }
+    var geminiResponse5Days by remember { mutableStateOf("") }
+    var showFirstRec5Days by remember { mutableStateOf(true) }
     // Carrega dados meteorológicos quando a tela é exibida
     LaunchedEffect(Unit) {
         viewModel.loadWeatherDataForAllCities()
     }
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = modifier.background(color = White).fillMaxSize()
-    ) {
+    Box(modifier = modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.height(16.dp))
         Column(
-            modifier = modifier
-                .shadow(5.dp, RoundedCornerShape(25.dp))
-                .background(color = White, shape = RoundedCornerShape(25.dp))
-                .height(420.dp)
-                .width(350.dp)
-                .border(3.dp, color = White, shape = RoundedCornerShape(25.dp))
-                .padding(16.dp),
+            modifier = modifier.fillMaxSize().background(color = White),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -267,7 +263,8 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
             ) {
                 TextField(
                     value = selectedCity,
-                    onValueChange = {},
+                    onValueChange = {showFirstForecast = true
+                                    Log.d(String.toString(),showFirstForecast.toString())},
                     readOnly = true,
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCity) },
                     modifier = Modifier.menuAnchor(),
@@ -290,6 +287,9 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
                             onClick = {
                                 selectedCity = selectionOption
                                 expandedCity = false
+                                showFirstForecast = true
+                                allButsDisabled = false
+                                Log.d(String.toString(),showFirstForecast.toString())
                             },
 
                             )
@@ -306,6 +306,7 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
                     Text(selectedCity, fontWeight = FontWeight.Bold, color = Black)
                     Text("Error loading data", fontSize = 12.sp, color = Black)
                 } else {
+
                     Row{
                         Text(
                             text = selectedCity,
@@ -367,6 +368,45 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
                         color = Black,
                         fontSize = 14.sp
                     )
+                    var isLoading by remember { mutableStateOf(false) }
+                    var geminiResponse by remember { mutableStateOf("") }
+                    val fetchHistoricalData: () -> Unit = {
+                        if (selectedCity.isNotBlank()) {
+                            isLoading = true
+                            geminiResponse = ""
+
+                            fetchHistoricalWeatherData(selectedCity, context) { data ->
+                                historicalWeatherData = data
+
+                                // Agora gerar o conteúdo com Gemini
+                                val weatherPrompt1 =
+                                    "Considerando que estou em ${selectedCity}, o ano é ${today.year}, considere o fuso horário desse lugar.  " +
+                                            "os dados de hoje são ${weatherData.temperature}ºC, ${weatherData.humidity}%, " +
+                                            "${weatherData.rain}mm/h e ${weatherData.wind}km/h"
+
+                                val weatherPrompt2 =
+                                    "Dados históricos dos últimos 7 dias: $historicalWeatherData. " +
+                                            "Gere apenas 10 valores, 5 da temperatura em ºC e 5 das condições possíveis para os próximos 5 dias, e não inclua mais textos além disso e lembre-se de incluir essas imagens nas previsões https://www.weatherapi.com/docs/weather_conditions.json e as imagens tem que ficar do lado de ºC. Exemplo do que você deve gerar: " +
+
+                                            "27,5ºC 28,1ºC 25,1ºC 26,1ºC 23,1ºC (Esses valores são apenas exemplos e não devem ser gerados)"
+
+                                // Gerar previsão com Gemini em uma corrotina separada
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    try {
+                                        val fullPrompt = weatherPrompt1 + weatherPrompt2
+                                        val response = modelIa.generateContent(fullPrompt)
+                                        geminiResponse = response.text ?: "Não foi possível gerar previsão"
+                                    } catch (e: Exception) {
+                                        geminiResponse = "Erro ao gerar previsão: ${e.message}"
+                                    } finally {
+                                        isLoading = false
+                                    }
+                                }
+                            }
+                        } else {
+                            geminiResponse = "Por favor, selecione uma cidade primeiro"
+                        }
+                    }
                     val fetchHistoricalToday: () -> Unit = {
                         if (selectedCity.isNotBlank()) {
                             isLoadingToday = true
@@ -438,6 +478,44 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
                             geminiResponseDateChoose = "Por favor, selecione uma cidade primeiro"
                         }
                     }
+                    val fetchHistorical5Days: () -> Unit = {
+                        if (selectedCity.isNotBlank()) {
+                            isLoading5Days = true
+                            geminiResponse5Days = ""
+
+                            fetchHistoricalWeatherData(selectedCity, context) { data ->
+                                historicalWeatherData = data
+
+                                // Agora gerar o conteúdo com Gemini
+                                val weatherPrompt1 =
+                                    "Considerando que estou em ${selectedCity}, e essas são as previsões para os próximos 5 dias "+geminiResponse
+
+                                val weatherPrompt2 =
+                                    "Quais são as recomendações para os próximos 5 dias, que tenham haver com trabalho, estudo, lazer,  sair de casa, etc.? Lembre-se também de avisar se é seguro sair de casa ou não."
+
+                                // Gerar previsão com Gemini em uma corrotina separada
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    try {
+                                        val fullPrompt = weatherPrompt1 + weatherPrompt2
+                                        val response = modelIa.generateContent(fullPrompt)
+                                        geminiResponse5Days =
+                                            response.text ?: "Não foi possível gerar recomendações"
+                                    } catch (e: Exception) {
+                                        geminiResponse5Days = "Erro ao gerar previsão: ${e.message}"
+                                    } finally {
+                                        isLoading5Days = false
+                                    }
+                                }
+                            }
+                        } else {
+                            geminiResponseToday = "Por favor, selecione uma cidade primeiro"
+                        }
+                    }
+                    val extraDays = (1..5).map { today.plusDays(it.toLong()).dayOfMonth.toString() + "/" + today.plusDays(it.toLong()).monthValue.toString() }
+                    if(showFirstForecast){
+                        fetchHistoricalData()
+                        showFirstForecast = false
+                    }
                     if (showRecToday && !closeRecToday) {
                         if (showFirstRecToday) {
                             fetchHistoricalToday()
@@ -447,7 +525,7 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
                         if (isLoadingToday) {
 
                             CircularProgressIndicator()
-
+                            allButsDisabled = false
                         } else {
 
                             if (geminiResponseToday.isNotEmpty()) {
@@ -480,7 +558,7 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
                         if (isLoadingDateChoose) {
 
                             CircularProgressIndicator()
-
+                            allButsDisabled = false
                         } else {
 
                             if (geminiResponseDateChoose.isNotEmpty()) {
@@ -497,6 +575,37 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
                                 }
                                 builder.setTitle("Recommendations (date choose)")
                                 builder.setMessage(geminiResponseDateChoose.replace("*",""))
+
+                                val dialog = builder.create()
+                                dialog.show()
+                            }
+
+                        }
+                    }
+
+                    if (showRec5Days && !closeRec5Days) {
+                        if (showFirstRec5Days) {
+                            fetchHistorical5Days()
+                            showFirstRec5Days = false
+                        }
+
+                        if (isLoading5Days) {
+
+                            CircularProgressIndicator()
+                            allButsDisabled = false
+                        } else {
+
+                            if (geminiResponse5Days.isNotEmpty()) {
+                                val builder = AlertDialog.Builder(context)
+
+                                builder.setNegativeButton("X") { dialog,_ ->
+
+                                    showRec5Days = false
+                                    closeRec5Days = true
+                                    dialog.dismiss()
+                                }
+                                builder.setTitle("Recommendations (next 5 days)")
+                                builder.setMessage(geminiResponse5Days.replace("*",""))
 
                                 val dialog = builder.create()
                                 dialog.show()
@@ -598,6 +707,7 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
                             showDateChoose  = true
                             closeDateChoose = false
                             allButsDisabled = false
+                            showFirstRecDateChoose = true
                         },
                         enabled = allButsDisabled
                     ) {
@@ -615,16 +725,96 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
                             .height(50.dp)
                             .border(3.dp, Color.Transparent, RoundedCornerShape(25.dp)),
                         onClick = {
-                            showRecToday = true;
-                            closeRecToday = false;
+                            showRecToday = true
+                            closeRecToday = false
                             allButsDisabled = false
+                            showFirstRecDateChoose = true;
                         },
                         enabled = allButsDisabled
                         ) {
                         Text("Recommendations (today)", fontSize = 16.sp)
                     }
+                    Button(
+                        colors = ButtonColors(
+                            containerColor = GreenL,
+                            contentColor = White,
+                            disabledContainerColor = GrayD,
+                            disabledContentColor = White,
+                        ),
+                        modifier = modifier
+                            .height(50.dp)
+                            .offset((-5).dp, (25).dp)
+                            .border(3.dp, Color.Transparent, RoundedCornerShape(25.dp)),
+                        onClick = {
+                            showRec5Days = true
+                            closeRec5Days = false
+                            showFirstRec5Days = true
+                        },
+                        enabled = allButsDisabled
+                    ) {
+                        Text("Recommendations (next 5 days)", fontSize = 16.sp)
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Box(
+                        modifier = Modifier
+
+                            .offset(0.dp, 45.dp)
+                            .background(
+                                brush = Brush.verticalGradient( // Or Brush.horizontalGradient, Brush.linearGradient
+                                    colors = listOf(
+                                        Color(0xFF64B5F6), // Start color (light blue)
+                                        Color(0xFF0D47A1)  // End color (dark blue)
+                                    )
+                                ), shape = RoundedCornerShape(15.dp)
+                            )
+                            .border(3.dp, color = Color.Transparent, shape = RoundedCornerShape(15.dp))
+                            .height(125.dp)
+                            .width(175.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (geminiResponse.isNotEmpty()) {
+                            val BrokenLines = countBrokenLines(geminiResponse)
+
+                            Row {
+                                if (geminiResponse.contains("<img")
+                                    || geminiResponse.contains("https")
+                                    || geminiResponse.contains("Ensolarado")
+                                    || geminiResponse.contains("Nublado")
+                                    || geminiResponse.contains("Sunny")
+                                    || geminiResponse.contains("Sol")
+                                    || geminiResponse.contains("png")
+                                    || geminiResponse.contains(".png")
+                                    || BrokenLines < 5
+                                    || BrokenLines > 5
+                                ) {
+                                    showFirstForecast = true
+                                    allButsDisabled = false
+                                } else {
+                                    allButsDisabled = true
+                                    Text(
+                                        text = geminiResponse.replace("*",""),
+                                        fontSize = 16.sp,
+                                        color = White,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 5
+                                    )
+                                }
+
+                                Text(
+                                    text = extraDays.toString().replace("[", " ").replace("]", "")
+                                        .replace(",", "\n"),
+                                    fontSize = 16.sp,
+                                    color = White,
+                                    fontWeight = FontWeight.Bold
+
+                                )
+                            }
+                        }
+                    }
                 }
 
+            }else{
+                allButsDisabled = false
             }
         }
 

@@ -3,6 +3,7 @@ package com.weatheralert
 import android.Manifest
 import android.app.AlertDialog
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -37,6 +38,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -50,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -141,7 +144,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
     }
+
 }
 
 
@@ -165,7 +170,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
     val weatherDataSize by remember { mutableStateOf(18.sp) }
     val optionsDay: List<String> = (1..31).map { it.toString() }
     val optionsMonth: List<String> = (today.monthValue..12).map { it.toString() }
-
+    var brokenLines by remember { mutableIntStateOf(0) }
     // Estado para armazenar dados históricos
     var historicalWeatherData by remember { mutableStateOf("") }
 
@@ -332,6 +337,12 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
         } else {
             geminiResponseDateChoose = "Por favor, selecione uma cidade primeiro"
         }
+    }
+    val extraDays = (1..5).map { today.plusDays(it.toLong()).dayOfMonth.toString() + "/" + today.plusDays(it.toLong()).monthValue.toString() }
+
+    if (showFirstForecast) {
+        fetchHistoricalData()
+        showFirstForecast = false
     }
     Box(modifier = modifier.fillMaxSize()) {
     Column(
@@ -500,7 +511,102 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                 }
             }
         }
+        if (showRecToday && !closeRecToday) {
+            if (showFirstRecToday) {
+                fetchHistoricalToday()
+                showFirstRecToday = false
+            }
 
+            if (isLoadingToday) {
+                allButsDisabled = false
+
+                CircularProgressIndicator()
+
+            } else {
+
+                if (geminiResponseToday.isNotEmpty()) {
+                    val builder = AlertDialog.Builder(context)
+
+                    builder.setNegativeButton("X") { dialog,_ ->
+
+
+                        showRecToday =  false
+                        closeRecToday = true
+                        dialog.dismiss()
+                    }
+                    builder.setTitle("Recommendations (Today)")
+                    builder.setMessage(geminiResponseToday.replace("*",""))
+
+                    val dialog = builder.create()
+                    dialog.show()
+                }
+
+            }
+        }
+
+
+        if (showRec5Days && !closeRec5Days) {
+            if (showFirstRec5Days) {
+                fetchHistorical5Days()
+                showFirstRec5Days = false
+            }
+
+            if (isLoading5Days) {
+
+                CircularProgressIndicator()
+                allButsDisabled = false
+            } else {
+
+                if (geminiResponse5Days.isNotEmpty()) {
+                    val builder = AlertDialog.Builder(context)
+
+                    builder.setNegativeButton("X") { dialog,_ ->
+
+                        showRec5Days = false
+                        closeRec5Days = true
+                        dialog.dismiss()
+                    }
+                    builder.setTitle("Recommendations (next 5 days)")
+                    builder.setMessage(geminiResponse5Days.replace("*",""))
+
+                    val dialog = builder.create()
+                    dialog.show()
+                }
+
+            }
+        }
+
+        if (showDateChoose && !closeDateChoose) {
+            if (showFirstRecDateChoose) {
+                fetchHistoricalDateChoose()
+                showFirstRecDateChoose = false
+            }
+
+            if (isLoadingDateChoose) {
+                allButsDisabled = false
+                CircularProgressIndicator()
+
+            } else {
+
+                if (geminiResponseDateChoose.isNotEmpty()) {
+                    val builder = AlertDialog.Builder(context)
+
+                    builder.setNegativeButton("X") { dialog,_ ->
+
+                        showDateChoose  = false
+                        closeDateChoose = true
+                        showFirstRecDateChoose = true
+                        dialog.dismiss()
+                    }
+                    builder.setTitle("Recommendations (date choose)")
+                    builder.setMessage(geminiResponseDateChoose.replace("*",""))
+
+                    val dialog = builder.create()
+                    dialog.show()
+                }
+
+            }
+        }
         Button(
             colors = ButtonColors(
                 containerColor = GreenL,
@@ -515,6 +621,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
             onClick = {
                 showDateChoose  = true
                 closeDateChoose = false
+                showFirstRecDateChoose = true
                 allButsDisabled = false
             },
             enabled = allButsDisabled
@@ -534,8 +641,9 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                 .offset((-5).dp, (20).dp)
                 .border(3.dp, Color.Transparent, RoundedCornerShape(25.dp)),
             onClick = {
-                showRecToday = true;
-                closeRecToday = false;
+                showRecToday = true
+                closeRecToday = false
+                showFirstRecToday = true
                 allButsDisabled = false
             },
             enabled = allButsDisabled
@@ -556,6 +664,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
             onClick = {
                 showRec5Days = true
                 closeRec5Days = false
+                showFirstRec5Days = true
                 allButsDisabled = false
             },
             enabled = allButsDisabled
@@ -564,14 +673,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
         }
 
 
-        val extraDays = (1..5).map { today.plusDays(it.toLong()).dayOfMonth.toString() + "/" + today.plusDays(it.toLong()).monthValue.toString() }
 
-        if (showFirstForecast) {
-
-            fetchHistoricalData()
-            showFirstForecast = false
-            allButsDisabled = true;
-        }
         Box(
             modifier = Modifier
 
@@ -589,8 +691,8 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                 .width(175.dp),
             contentAlignment = Alignment.Center
         ) {
-            if (geminiResponse.isNotEmpty()) {
-                val BrokenLines = countBrokenLines(geminiResponse)
+            if (geminiResponse.isNotEmpty() ) {
+                brokenLines = countBrokenLines(geminiResponse)
 
                 Row {
                     if (geminiResponse.contains("<img")
@@ -601,13 +703,14 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                         || geminiResponse.contains("Sol")
                         || geminiResponse.contains("png")
                         || geminiResponse.contains(".png")
-                        || BrokenLines < 5
-                        || BrokenLines > 5
+                        || brokenLines < 5
+                        || brokenLines > 5
+
                     ) {
                         showFirstForecast = true
-                        allButsDisabled = false;
+                        allButsDisabled = false
                     } else {
-
+                        allButsDisabled = true
                         Text(
                             text = geminiResponse.replace("*",""),
                             fontSize = 16.sp,
@@ -628,101 +731,7 @@ fun HomePage(modifier: Modifier = Modifier, viewModel: MainViewModel) {
                 }
             }
         }
-        if (showRecToday && !closeRecToday) {
-                if (showFirstRecToday) {
-                    fetchHistoricalToday()
-                    showFirstRecToday = false
-                }
 
-                if (isLoadingToday) {
-
-                    CircularProgressIndicator()
-
-                } else {
-
-                    if (geminiResponseToday.isNotEmpty()) {
-                        val builder = AlertDialog.Builder(context)
-
-                        builder.setNegativeButton("X") { dialog,_ ->
-
-                            allButsDisabled = true
-                            showRecToday =  false
-                            closeRecToday = true
-                            dialog.dismiss()
-                        }
-                        builder.setTitle("Recommendations (Today)")
-                        builder.setMessage(geminiResponseToday.replace("*",""))
-
-                        val dialog = builder.create()
-                        dialog.show()
-                    }
-
-                }
-        }
-
-
-        if (showRec5Days && !closeRec5Days) {
-            if (showFirstRec5Days) {
-                fetchHistorical5Days()
-                showFirstRec5Days = false
-            }
-
-                if (isLoading5Days) {
-
-                    CircularProgressIndicator()
-
-                } else {
-
-                    if (geminiResponse5Days.isNotEmpty()) {
-                        val builder = AlertDialog.Builder(context)
-
-                        builder.setNegativeButton("X") { dialog,_ ->
-                            allButsDisabled = true
-                            showRec5Days = false
-                            closeRec5Days = true
-                            dialog.dismiss()
-                        }
-                        builder.setTitle("Recommendations (next 5 days)")
-                        builder.setMessage(geminiResponse5Days.replace("*",""))
-
-                        val dialog = builder.create()
-                        dialog.show()
-                    }
-
-                }
-            }
-
-        if (showDateChoose && !closeDateChoose) {
-            if (showFirstRecDateChoose) {
-                fetchHistoricalDateChoose()
-                showFirstRecDateChoose = false
-            }
-
-            if (isLoadingDateChoose) {
-
-                CircularProgressIndicator()
-
-            } else {
-
-                if (geminiResponseDateChoose.isNotEmpty()) {
-                    val builder = AlertDialog.Builder(context)
-
-                    builder.setNegativeButton("X") { dialog,_ ->
-                        allButsDisabled = true
-                        showDateChoose  = false
-                        closeDateChoose = true
-                        showFirstRecDateChoose = true
-                        dialog.dismiss()
-                    }
-                    builder.setTitle("Recommendations (date choose)")
-                    builder.setMessage(geminiResponseDateChoose.replace("*",""))
-
-                    val dialog = builder.create()
-                    dialog.show()
-                }
-
-            }
-        }
     }
 }
 }
