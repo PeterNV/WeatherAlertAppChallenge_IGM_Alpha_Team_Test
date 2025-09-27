@@ -782,6 +782,7 @@ fun FavoritePage(modifier: Modifier = Modifier, viewModel: FavoritesViewModel) {
                                     || geminiResponse.contains("Ensolarado")
                                     || geminiResponse.contains("Nublado")
                                     || geminiResponse.contains("Sunny")
+                                    || geminiResponse.contains("Cloudly")
                                     || geminiResponse.contains("Sol")
                                     || geminiResponse.contains("png")
                                     || geminiResponse.contains(".png")
