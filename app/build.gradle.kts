@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import java.util.Properties
 
 plugins {
@@ -45,7 +46,9 @@ android {
     }
     kotlinOptions {
         jvmTarget = "11"
+
     }
+
     buildFeatures {
         compose = true
         buildConfig = true
